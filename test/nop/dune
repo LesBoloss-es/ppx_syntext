@@ -1,0 +1,10 @@
+(library
+ (name ppx_nop)
+ (modules ppx_nop)
+ (libraries compiler-libs.common ocaml-migrate-parsetree ppx_tools_versioned)
+ (kind ppx_rewriter))
+
+(library
+ (name nop)
+ (modules nop)
+ (libraries ppx_syntext.std))

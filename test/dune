@@ -1,0 +1,45 @@
+
+(tests
+ (names if let seq match match_exn match_guard try assert for while)
+ (modules if let seq match match_exn match_guard try assert for while)
+ (libraries nop) (preprocess (pps ppx_syntext -- -e nop -m Nop)))
+
+(rule (action (copy if.ml if_erased.ml)))
+(executable (name if_erased) (modules if_erased) (preprocess (pps ppx_nop)))
+(rule (with-stdout-to if.expected (run ./if_erased.exe)))
+
+(rule (action (copy let.ml let_erased.ml)))
+(executable (name let_erased) (modules let_erased) (preprocess (pps ppx_nop)))
+(rule (with-stdout-to let.expected (run ./let_erased.exe)))
+
+(rule (action (copy seq.ml seq_erased.ml)))
+(executable (name seq_erased) (modules seq_erased) (preprocess (pps ppx_nop)))
+(rule (with-stdout-to seq.expected (run ./seq_erased.exe)))
+
+(rule (action (copy match.ml match_erased.ml)))
+(executable (name match_erased) (modules match_erased) (preprocess (pps ppx_nop)))
+(rule (with-stdout-to match.expected (run ./match_erased.exe)))
+
+(rule (action (copy match_exn.ml match_exn_erased.ml)))
+(executable (name match_exn_erased) (modules match_exn_erased) (preprocess (pps ppx_nop)))
+(rule (with-stdout-to match_exn.expected (run ./match_exn_erased.exe)))
+
+(rule (action (copy match_guard.ml match_guard_erased.ml)))
+(executable (name match_guard_erased) (modules match_guard_erased) (preprocess (pps ppx_nop)))
+(rule (with-stdout-to match_guard.expected (run ./match_guard_erased.exe)))
+
+(rule (action (copy try.ml try_erased.ml)))
+(executable (name try_erased) (modules try_erased) (preprocess (pps ppx_nop)))
+(rule (with-stdout-to try.expected (run ./try_erased.exe)))
+
+(rule (action (copy assert.ml assert_erased.ml)))
+(executable (name assert_erased) (modules assert_erased) (preprocess (pps ppx_nop)))
+(rule (with-stdout-to assert.expected (run ./assert_erased.exe)))
+
+(rule (action (copy for.ml for_erased.ml)))
+(executable (name for_erased) (modules for_erased) (preprocess (pps ppx_nop)))
+(rule (with-stdout-to for.expected (run ./for_erased.exe)))
+
+(rule (action (copy while.ml while_erased.ml)))
+(executable (name while_erased) (modules while_erased) (preprocess (pps ppx_nop)))
+(rule (with-stdout-to while.expected (run ./while_erased.exe)))
