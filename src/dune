@@ -11,5 +11,5 @@
 (library
  (name syntext)
  (public_name ppx_syntext.std)
- (modules syntext)
+ (modules :standard \ ppx_syntext)
  (libraries compiler-libs.common ocaml-migrate-parsetree))
