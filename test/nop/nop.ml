@@ -38,6 +38,9 @@ let try_ e cases =
 let assert_ e =
   assert (e ())
 
+let assert_false () =
+  assert false
+
 let while_ e1 e2 =
   while e1 () do
     e2 ()

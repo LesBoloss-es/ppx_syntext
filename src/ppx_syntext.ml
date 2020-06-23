@@ -155,6 +155,9 @@ let syntext_expr ~ext expr =
     in
     [%expr [%e function_name ~ext "if"] [%e thunk e1] [%e thunk e2] [%e e3]]
 
+  | Pexp_assert [%expr false] ->
+    [%expr [%e function_name ~ext "assert_false" ~reserved:false] ()]
+
   | Pexp_assert e ->
     [%expr [%e function_name ~ext "assert"] [%e thunk e]]
 
