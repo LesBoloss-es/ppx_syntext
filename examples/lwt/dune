@@ -1,0 +1,4 @@
+(library
+ (name syntextLwt)
+ (public_name ppx_syntext.lwt)
+ (libraries ppx_syntext.std lwt compiler-libs.common ocaml-migrate-parsetree))
