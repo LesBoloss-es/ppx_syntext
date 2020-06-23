@@ -97,3 +97,4 @@ Urgent to-do list
 - A way to declare extensions on a per-file basis.
 - Let *Syntext* run on all extensions, with a very low priority with respect to
   other rewriters, by default.
+- An easy way to define a standalone PPX using ppx_syntext as a lib.
