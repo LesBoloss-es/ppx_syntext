@@ -5,49 +5,9 @@ open Ast_helper
 open Asttypes
 open Parsetree
 
-module Config = struct
-  open Arg
-  let bad_arg fmt = Format.kasprintf (fun s -> raise (Arg.Bad s)) fmt
-
-  module Extension = struct
-    type t = { mutable module_ : Longident.t option }
-    let default = { module_ = None }
-
-    let all : (string, t) Hashtbl.t = Hashtbl.create 8
-    let last : string ref = ref ""
-
-    let add name =
-      match Hashtbl.find_opt all name with
-      | None -> Hashtbl.add all name default; last := name
-      | Some _ -> bad_arg "extension %s already exists" name
-
-    let mem = Hashtbl.mem all
-
-    let set_module module_ =
-      let module_ =
-        match Longident.unflatten (String.split_on_char '.' module_) with
-        | None -> bad_arg "could not understand given module %s" module_
-        | Some module_ -> module_
-      in
-      match Hashtbl.find_opt all !last with
-      | None -> bad_arg "must add extension before defining prefix"
-      | Some config -> config.module_ <- Some module_
-
-    let get_module name = (Hashtbl.find all name).module_
-  end
-
-  let args = [
-    "--extension", String Extension.add, "NAME adds the extension NAME";
-    "-e",          String Extension.add, "NAME short for --extension";
-
-    "--module", String Extension.set_module, "STRING sets the module for last extension";
-    "-m",       String Extension.set_module, "STRING short for --module";
-  ]
-end
-
 let function_name ~ext ?(reserved=true) name =
   let ident =
-    match Config.Extension.get_module ext with
+    match Syntext.Config.State.get_module_for ext with
     | None -> Longident.Lident ("syntext_" ^ ext ^ "_" ^ name)
     | Some module_ -> Longident.Ldot (module_, name ^ (if reserved then "_" else ""))
   in
@@ -176,7 +136,7 @@ let expr mapper = function
           PStr [ {pstr_desc = Pstr_eval (expr, _); _} ]
         );
       _ }
-    when Config.Extension.mem txt
+    when Syntext.Config.State.extension_exists txt
     ->
     ignore loc;
     let expr = syntext_expr ~ext:txt expr in
@@ -187,5 +147,5 @@ let expr mapper = function
 let mapper = { default_mapper with expr }
 
 let () =
-  Driver.register ~name:"ppx_syntext" ~args:Config.args Versions.ocaml_411
+  Driver.register ~name:"ppx_syntext" ~args:Syntext.Config.State.args Versions.ocaml_411
     (fun _config _cookies -> mapper)

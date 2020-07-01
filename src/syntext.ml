@@ -1,5 +1,7 @@
 include Common
 
+module Config = Config
+
 module FromMonad (M : FromMonad.Monad)
   : FromMonad.Sig with type 'a t = 'a M.t =
 struct

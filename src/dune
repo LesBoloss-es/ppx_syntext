@@ -3,7 +3,7 @@
  (public_name ppx_syntext)
  (synopsis "Generic syntax extension PPX")
  (modules ppx_syntext)
- (libraries compiler-libs.common ocaml-migrate-parsetree ppx_tools_versioned)
+ (libraries compiler-libs.common ocaml-migrate-parsetree ppx_tools_versioned syntext)
  (ppx_runtime_libraries syntext)
  (kind ppx_rewriter)
  (preprocess (pps ppx_tools_versioned.metaquot_411)))
