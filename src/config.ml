@@ -64,7 +64,8 @@ module State = struct
   let last_key = ref ""
 
   let add_extension key =
-    current := add_extension key !current
+    current := add_extension key !current;
+    last_key := key
 
   let extension_exists key =
     extension_exists key !current
