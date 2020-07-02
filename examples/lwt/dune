@@ -1,4 +1,13 @@
 (library
  (name syntextLwt)
+ (public_name ppx_syntext.lwt.functions)
+ (libraries lwt ppx_syntext.std)
+ (modules syntextLwt))
+
+(library
+ (name ppx_syntext_lwt)
  (public_name ppx_syntext.lwt)
- (libraries ppx_syntext.std lwt compiler-libs.common ocaml-migrate-parsetree))
+ (kind ppx_rewriter)
+ (libraries syntext)
+ (ppx_runtime_libraries ppx_syntext.lwt.functions)
+ (modules ppx_syntext_lwt))

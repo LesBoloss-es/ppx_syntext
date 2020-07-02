@@ -23,6 +23,8 @@ type extension =
 
 type t = { extensions : extension list }
 
+let default = { extensions = [] }
+
 let add_extension key config =
   let extensions =
     list_update
@@ -62,7 +64,7 @@ let get_module_for key config =
   | Some ext -> ext.module_
 
 module State = struct
-  let current = ref { extensions = [] }
+  let current = ref default
 
   let last_key = ref ""
 
