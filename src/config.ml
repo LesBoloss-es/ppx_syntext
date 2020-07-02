@@ -23,8 +23,6 @@ type extension =
 
 type t = { extensions : extension list }
 
-let default = { extensions = [] }
-
 let add_extension key config =
   let extensions =
     list_update
@@ -36,11 +34,16 @@ let add_extension key config =
   { extensions }
 
 let extension_exists key config =
-  match list_find ~if_:(fun ext -> ext.key = key) config.extensions with
-  | None -> false
-  | Some _ -> true
+  config.extensions
+  |> list_find ~if_:(fun ext -> ext.key = key)
+  |> (<>) None
 
 let set_module_for key module_ config =
+  let module_ =
+    match Longident.unflatten (String.split_on_char '.' module_) with
+    | None -> bad_arg "could not understand '%s' as a module" module_
+    | Some module_ -> module_
+  in
   let extensions =
     list_update
       ~if_:(fun ext -> ext.key = key )
@@ -67,19 +70,8 @@ module State = struct
     current := add_extension key !current;
     last_key := key
 
-  let extension_exists key =
-    extension_exists key !current
-
   let set_module_for_last module_ =
-    let module_ =
-      match Longident.unflatten (String.split_on_char '.' module_) with
-      | None -> bad_arg "could not understand '%s' as a module" module_
-      | Some module_ -> module_
-    in
     current := set_module_for !last_key module_ !current
-
-  let get_module_for key =
-    get_module_for key !current
 
   let args = [
     "--extension", String add_extension, "NAME adds the extension NAME";
@@ -89,3 +81,15 @@ module State = struct
     "-m",       String set_module_for_last, "STRING short for --module";
   ]
 end
+
+type maybe = t option
+
+let from_maybe = function
+  | None -> !State.current
+  | Some config -> config
+
+let extension_exists key maybe =
+  extension_exists key (from_maybe maybe)
+
+let get_module_for key maybe =
+  get_module_for key (from_maybe maybe)

@@ -5,9 +5,9 @@ open Ast_helper
 open Asttypes
 open Parsetree
 
-let function_name ~ext ?(reserved=true) name =
+let function_name config ~ext ?(reserved=true) name =
   let ident =
-    match Syntext.Config.State.get_module_for ext with
+    match Syntext.Config.get_module_for ext config with
     | None -> Longident.Lident ("syntext_" ^ ext ^ "_" ^ name)
     | Some module_ -> Longident.Ldot (module_, name ^ (if reserved then "_" else ""))
   in
@@ -35,13 +35,13 @@ let add_catchall cases =
   else
     cases @ [Exp.case [%pat? exn] [%expr raise (Syntext.Exn exn)]]
 
-let syntext_expr ~ext expr =
+let syntext_expr conf ~ext expr =
   match expr.pexp_desc with
 
   | Pexp_sequence (e1, e2) ->
     (* e1; e2
        => syntext_*_seq (fun () -> e1) (fun () -> e2) *)
-    [%expr [%e function_name ~ext "seq" ~reserved:false] [%e thunk e1] [%e thunk e2]]
+    [%expr [%e function_name conf ~ext "seq" ~reserved:false] [%e thunk e1] [%e thunk e2]]
 
   | Pexp_let (Nonrecursive, vbs, e) ->
     (* let v1 = e1 in e
@@ -51,7 +51,7 @@ let syntext_expr ~ext expr =
     let ands =
       List.fold_left
         (fun ands vb ->
-           [%expr [%e function_name ~ext "and"] [%e thunk ands] [%e thunk vb.pvb_expr]])
+           [%expr [%e function_name conf ~ext "and"] [%e thunk ands] [%e thunk vb.pvb_expr]])
         (List.hd vbs).pvb_expr
         (List.tl vbs)
     in
@@ -61,7 +61,7 @@ let syntext_expr ~ext expr =
         (List.hd vbs).pvb_pat
         (List.tl vbs)
     in
-    [%expr [%e function_name ~ext "let"] [%e thunk ands] [%e thunk ~p:pats e]]
+    [%expr [%e function_name conf ~ext "let"] [%e thunk ands] [%e thunk ~p:pats e]]
 
   | Pexp_match (e, cases) ->
     (* match e with cases
@@ -85,7 +85,7 @@ let syntext_expr ~ext expr =
         exns
     in
     let match_ =
-      [%expr [%e function_name ~ext "match"] [%e thunk e] [%e Exp.function_ cases]]
+      [%expr [%e function_name conf ~ext "match"] [%e thunk e] [%e Exp.function_ cases]]
     in
     (* We could always use the second case and wrap the match in a useless try.
        That is a bit slower in term of performances. More importantly, it means
@@ -94,14 +94,14 @@ let syntext_expr ~ext expr =
     if exns = [] then
       match_
     else
-      [%expr [%e function_name ~ext "try"]
+      [%expr [%e function_name conf ~ext "try"]
           (fun () -> [%e match_])
           [%e Exp.function_ (add_catchall exns)]]
 
   | Pexp_try (e, cases) ->
     (* try e with cases
        => syntext_*_try (fun () -> e) (function cases) *)
-    [%expr [%e function_name ~ext "try"] [%e thunk e] [%e Exp.function_ (add_catchall cases)]]
+    [%expr [%e function_name conf ~ext "try"] [%e thunk e] [%e Exp.function_ (add_catchall cases)]]
 
   | Pexp_ifthenelse (e1, e2, e3) ->
     (* if e1 then e2
@@ -113,39 +113,39 @@ let syntext_expr ~ext expr =
       | None -> [%expr None]
       | Some e3 -> [%expr Some [%e thunk e3]]
     in
-    [%expr [%e function_name ~ext "if"] [%e thunk e1] [%e thunk e2] [%e e3]]
+    [%expr [%e function_name conf ~ext "if"] [%e thunk e1] [%e thunk e2] [%e e3]]
 
   | Pexp_assert [%expr false] ->
-    [%expr [%e function_name ~ext "assert_false" ~reserved:false] ()]
+    [%expr [%e function_name conf ~ext "assert_false" ~reserved:false] ()]
 
   | Pexp_assert e ->
-    [%expr [%e function_name ~ext "assert"] [%e thunk e]]
+    [%expr [%e function_name conf ~ext "assert"] [%e thunk e]]
 
   | Pexp_while (e1, e2) ->
-    [%expr [%e function_name ~ext "while"] [%e thunk e1] [%e thunk e2]]
+    [%expr [%e function_name conf ~ext "while"] [%e thunk e1] [%e thunk e2]]
 
   | Pexp_for (i, e1, e2, dir, e3) ->
-    [%expr [%e function_name ~ext "for"] [%e thunk e1] [%e direction_expr dir] [%e thunk e2] [%e thunk ~p:i e3]]
+    [%expr [%e function_name conf ~ext "for"] [%e thunk e1] [%e direction_expr dir] [%e thunk e2] [%e thunk ~p:i e3]]
 
   | _ -> expr
 
-let expr mapper = function
+let expr conf mapper = function
   | { pexp_desc =
         Pexp_extension (
           {txt; loc},
           PStr [ {pstr_desc = Pstr_eval (expr, _); _} ]
         );
       _ }
-    when Syntext.Config.State.extension_exists txt
+    when Syntext.Config.extension_exists txt conf
     ->
     ignore loc;
-    let expr = syntext_expr ~ext:txt expr in
+    let expr = syntext_expr conf ~ext:txt expr in
     default_mapper.expr mapper expr
 
   | expr -> default_mapper.expr mapper expr
 
-let mapper = { default_mapper with expr }
+let mapper config = { default_mapper with expr = expr config }
 
 let () =
   Driver.register ~name:"ppx_syntext" ~args:Syntext.Config.State.args Versions.ocaml_411
-    (fun _config _cookies -> mapper)
+    (fun _config _cookies -> mapper None)
