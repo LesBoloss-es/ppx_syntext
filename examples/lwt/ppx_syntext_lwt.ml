@@ -5,4 +5,4 @@ let config = Syntext.Config.(
     |> set_module_for "lwt" "SyntextLwt"
   )
 
-let () = Syntext.Mapper.register ~name:"ppx_syntext" ()
+let () = Syntext.Mapper.register ~name:"ppx_syntext" ~config ()

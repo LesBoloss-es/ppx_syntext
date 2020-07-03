@@ -9,12 +9,12 @@ external reraise : exn -> 'a = "%reraise"
 let seq e1 e2 =
   Lwt.backtrace_bind
     (fun exn -> try reraise exn with exn -> exn)
-    e1 (fun () -> e2)
+    (e1 ()) (fun () -> e2 ())
 
-let let_ vb e =
+let let_ e1 e2 =
   Lwt.backtrace_bind
     (fun exn -> try reraise exn with exn -> exn)
-    (vb ()) e
+    (e1 ()) (fun v1 -> e2 v1)
 
 let and_ e1 e2 =
   Lwt.backtrace_bind
@@ -29,7 +29,7 @@ let match_ e cases =
   Lwt.bind (e ()) cases
 
 let assert_ e =
-  try Lwt.return (assert e) with exn -> Lwt.fail exn
+  try Lwt.return (assert (e ())) with exn -> Lwt.fail exn
 
 let assert_false () =
   try Lwt.return (assert false) with exn -> Lwt.fail exn
@@ -57,14 +57,11 @@ let try_ expr cases =
     (fun () -> expr ())
     cases
 
-let if_ cond e1 e2 =
-  let e2 =
-    match e2 with
-    | None -> fun () -> Lwt.return_unit
-    | Some e2 -> e2
-  in
-  let cases = function
-    | true -> e1 ()
-    | false -> e2 ()
-  in
-  Lwt.bind (cond ()) cases
+let if_then_else cond e1 e2 =
+  Lwt.bind (cond ())
+    (function
+      | true -> e1 ()
+      | false -> e2 ())
+
+let if_then cond e1 =
+  if_then_else cond e1 (fun () -> Lwt.return_unit)
