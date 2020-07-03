@@ -15,7 +15,8 @@ module type SigWithError = sig
 
   val and_ : (unit -> ('a, 'e) t) -> (unit -> ('b, 'e) t) -> ('a * 'b, 'e) t
 
-  val if_ : (unit -> (bool, 'e) t) -> (unit -> ('a, 'e) t) -> (unit -> ('a, 'e) t) -> ('a, 'e) t
+  val if_then : (unit -> (bool, 'e) t) -> (unit -> (unit, 'e) t) -> (unit, 'e) t
+  val if_then_else : (unit -> (bool, 'e) t) -> (unit -> ('a, 'e) t) -> (unit -> ('a, 'e) t) -> ('a, 'e) t
 
   val match_ : (unit -> ('a, 'e) t) -> ('a -> ('b, 'e) t) -> ('b, 'e) t
 
@@ -37,9 +38,12 @@ module Make (M : MonadWithError) : SigWithError with type ('a, 'e) t = ('a, 'e) 
     M.bind (e2 ()) @@ fun v2 ->
     M.return (v1, v2)
 
-  let if_ e1 e2 e3 =
+  let if_then_else e1 e2 e3 =
     M.bind (e1 ()) @@ fun v1 ->
     if v1 then e2 () else e3 ()
+
+  let if_then e1 e2 =
+    if_then_else e1 e2 M.return
 
   let match_ = let_
 

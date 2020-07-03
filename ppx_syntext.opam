@@ -16,7 +16,7 @@ extension can then be written using only pure OCaml functions. For an extension
 
 by
 
-    SyntextFoo.if_ (fun () -> e1) (fun () -> e2) (Some (fun () -> e3))
+    SyntextFoo.if_then_else (fun () -> e1) (fun () -> e2) (fun () -> e3)
 
 The behaviour of the if structure can then be defined purely in OCaml. For most
 syntax extensions, the structures can be derived from an underlying monad.

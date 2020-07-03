@@ -14,13 +14,11 @@ let and_ e1 e2 =
   let v1 = e1 () in
   (v1, e2 ())
 
-let if_ e1 e2 e3 =
-  if e1 () then
-    e2 ()
-  else
-    match e3 with
-    | None -> ()
-    | Some e3 -> e3 ()
+let if_then e1 e2 =
+  if e1 () then e2 ()
+
+let if_then_else e1 e2 e3 =
+  if e1 () then e2 () else e3 ()
 
 let match_ e cases =
   try

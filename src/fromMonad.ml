@@ -15,7 +15,8 @@ module type Sig = sig
 
   val and_ : (unit -> 'a t) -> (unit -> 'b t) -> ('a * 'b) t
 
-  val if_ : (unit -> bool t) -> (unit -> 'a t) -> (unit -> 'a t) -> 'a t
+  val if_then : (unit -> bool t) -> (unit -> unit t) -> unit t
+  val if_then_else : (unit -> bool t) -> (unit -> 'a t) -> (unit -> 'a t) -> 'a t
 
   val match_ : (unit -> 'a t) -> ('a -> 'b t) -> 'b t
 

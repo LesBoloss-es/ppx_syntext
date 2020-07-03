@@ -104,17 +104,17 @@ let syntext_expr conf ~ext expr =
        => syntext_*_try (fun () -> e) (function cases) *)
     [%expr [%e function_name conf ~ext "try"] [%e thunk e] [%e Exp.function_ (add_catchall cases)]]
 
-  | Pexp_ifthenelse (e1, e2, e3) ->
+  | Pexp_ifthenelse (e1, e2, None) ->
     (* if e1 then e2
-       => syntext_*_if (fun () -> e1) (fun () -> e2) None *)
+       => syntext_*_if_then (fun () -> e1) (fun () -> e2) None *)
+    [%expr [%e function_name conf ~ext "if_then" ~reserved:false]
+        [%e thunk e1] [%e thunk e2]]
+
+  | Pexp_ifthenelse (e1, e2, Some e3) ->
     (* if e1 then e2 else e3
-       => syntext_*_if (fun () -> e1) (fun () -> e2) (Some (fun () -> e3)) *)
-    let e3 =
-      match e3 with
-      | None -> [%expr None]
-      | Some e3 -> [%expr Some [%e thunk e3]]
-    in
-    [%expr [%e function_name conf ~ext "if"] [%e thunk e1] [%e thunk e2] [%e e3]]
+       => syntext_*_if_then_else (fun () -> e1) (fun () -> e2) (fun () -> e3) *)
+    [%expr [%e function_name conf ~ext "if_then_else" ~reserved:false]
+        [%e thunk e1] [%e thunk e2] [%e thunk e3]]
 
   | Pexp_assert [%expr false] ->
     [%expr [%e function_name conf ~ext "assert_false" ~reserved:false] ()]
@@ -151,6 +151,6 @@ let register ~name ?config () =
   let args, config =
     match config with
     | None -> SyntextConfig.State.args, None
-    | Some config -> [], config
+    | Some config -> [], Some config
   in
   Driver.register ~name ~args Versions.ocaml_411 (fun _config _cookies -> mapper config)
