@@ -1,7 +1,6 @@
 (library
  (name ppx_syntext)
  (public_name ppx_syntext)
- (synopsis "Generic syntax extension PPX")
  (modules ppx_syntext)
  (libraries syntext)
  (ppx_runtime_libraries syntext)
