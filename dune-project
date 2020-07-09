@@ -30,3 +30,7 @@ The behaviour of the if structure can then be defined purely in OCaml. For most
 syntax extensions, the structures can be derived from an underlying monad.
 Syntext thus provides a functor to produce these functions from only the bind
 and return functions."))
+
+(package
+ (name ppx_syntext_lwt)
+ (synopsis "Lwt syntaxt extension built with Syntext"))

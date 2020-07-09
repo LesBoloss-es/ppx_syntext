@@ -1,12 +1,12 @@
 (library
  (name syntextLwt)
- (public_name ppx_syntext.lwt.functions)
+ (public_name ppx_syntext_lwt.functions)
  (libraries lwt ppx_syntext.std)
  (modules syntextLwt))
 
 (library
  (name ppx_syntext_lwt)
- (public_name ppx_syntext.lwt)
+ (public_name ppx_syntext_lwt)
  (kind ppx_rewriter)
  (libraries syntext)
  (ppx_runtime_libraries ppx_syntext.lwt.functions)
