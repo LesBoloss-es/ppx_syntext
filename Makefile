@@ -14,3 +14,4 @@ test:
 
 clean:
 	dune clean
+	rm *.opam
