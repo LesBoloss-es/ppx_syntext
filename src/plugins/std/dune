@@ -1,0 +1,8 @@
+; (library
+;  (name ppx_syntext_std)
+;  (public_name ppx_syntext.std)
+;  (synopsis "Meta-package for all built-in syntax extensions")
+;  (libraries
+;   ppx_syntext_opt
+;   ppx_syntext_dyn)
+;  (kind ppx_rewriter))
