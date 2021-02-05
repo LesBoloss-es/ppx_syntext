@@ -15,10 +15,14 @@ type t = {
   on_assert     : expression -> expression ;
 }
 
+(* ============================== [ Sequence ] ============================== *)
+
 let create_on_sequence ?on_sequence () =
   match on_sequence with
   | Some on_sequence -> on_sequence
   | None -> fun _ _ -> assert false (* FIXME: bind *)
+
+(* ================================ [ Let ] ================================= *)
 
 let create_on_let_from_simple ?on_and on_simple_let =
   let on_and () =
@@ -50,10 +54,52 @@ let create_on_let ?on_let ?on_simple_let ?on_and () =
     | Some on_simple_let -> create_on_let_from_simple on_simple_let ?on_and
     | None -> fun _ _ _ -> assert false (* FIXME: bind *)
 
-let create_on_match_from_simple on_simple_match ?on_try =
-  ignore on_simple_match;
-  ignore on_try;
-  fun _ _ -> assert false
+(* =============================== [ Match ] ================================ *)
+
+let create_on_match_from_simple ?on_try on_simple_match =
+  fun e cases ->
+
+  (* match e with
+     | ... -> ...
+     | exception E -> ...
+     | exception F -> ...
+
+     =>
+
+     try
+       match e with
+       | ... -> ...
+     with
+     | E -> ...
+     | F -> ... *)
+
+  let (cases, exns) =
+    List.partition
+      (fun case ->
+         match case.pc_lhs.ppat_desc with
+         | Ppat_exception _ -> false
+         | _ -> true)
+      cases
+  in
+  let exns =
+    List.map
+      (fun case ->
+         match case.pc_lhs.ppat_desc with
+         | Ppat_exception pat -> { case with pc_lhs = pat }
+         | _ -> assert false)
+      exns
+  in
+  let match_ = on_simple_match e cases in
+  (* We could always use the second case and wrap the match in a useless try.
+     That is a bit slower in term of performances. More importantly, it means
+     that even for the use of simple match constructs without exceptions, one
+     would have to define [on_try] which we want to avoid. *)
+  if exns = [] then
+    match_
+  else
+    match on_try with
+    | Some on_try -> on_try match_ exns
+    | None -> assert false
 
 let create_on_match ?on_match ?on_simple_match ?on_try () =
   match on_match with
@@ -63,15 +109,26 @@ let create_on_match ?on_match ?on_simple_match ?on_try () =
     | Some on_simple_match -> create_on_match_from_simple on_simple_match ?on_try
     | None -> fun _ _ -> assert false
 
+(* ================================ [ Try ] ================================= *)
+
 let create_on_try ?on_try () =
   match on_try with
   | Some on_try -> on_try
   | None -> fun _ _ -> assert false
 
+(* ================================= [ If ] ================================= *)
+
 let create_on_ifthenelse_from_simple ?on_simple_ifthen ?on_simple_ifthenelse () =
-  ignore on_simple_ifthen;
-  ignore on_simple_ifthenelse;
-  fun _ _ _ -> assert false
+  fun e1 e2 e3 ->
+  match e3 with
+  | None ->
+    (match on_simple_ifthen with
+     | Some on_simple_ifthen -> on_simple_ifthen e1 e2
+     | None -> assert false)
+  | Some e3 ->
+    (match on_simple_ifthenelse with
+     | Some on_simple_ifthenelse -> on_simple_ifthenelse e1 e2 e3
+     | None -> assert false)
 
 let create_on_ifthenelse ?on_ifthenelse ?on_simple_ifthen ?on_simple_ifthenelse () =
   match on_ifthenelse with
@@ -81,17 +138,30 @@ let create_on_ifthenelse ?on_ifthenelse ?on_simple_ifthen ?on_simple_ifthenelse 
     | Some _, _ | _, Some _ -> create_on_ifthenelse_from_simple ?on_simple_ifthen ?on_simple_ifthenelse ()
     | None, None -> fun _ _ _ -> assert false
 
+(* =============================== [ While ] ================================ *)
+
 let create_on_while ?on_while () =
   match on_while with
   | Some on_while -> on_while
   | None -> fun _ _ -> assert false
+
+(* ================================ [ For ] ================================= *)
 
 let create_on_for ?on_for () =
   match on_for with
   | Some on_for -> on_for
   | None -> fun _ _ _ _ -> assert false
 
+(* =============================== [ Assert ] =============================== *)
+
 let create_on_assert ?on_assert ?on_assert_false () =
-  ignore on_assert;
-  ignore on_assert_false;
-  fun _ -> assert false
+  function
+  | [%expr false] ->
+    (match on_assert_false, on_assert with
+     | Some on_assert_false, _ -> on_assert_false ()
+     | None, Some on_assert -> on_assert [%expr false]
+     | None, None -> assert false)
+  | e ->
+    (match on_assert with
+     | Some on_assert -> on_assert e
+     | None -> assert false)
