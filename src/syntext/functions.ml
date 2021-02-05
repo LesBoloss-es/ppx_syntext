@@ -75,6 +75,13 @@ let create_on_let_from_simple ?on_and on_simple_let =
   on_simple_let pats ands e
 
 let create_on_let_from_bind ?on_return on_bind =
+  (* We can easily create a simple let and a and from bind and return.
+
+     let x = e1 in e2     =>     bind e1 (fun x -> e2)
+
+     on_and e1 e2         =>     bind e1 (fun v1 -> bind e2 (fun v2 -> return (v1, v2)))
+  *)
+
   let on_simple_let x e1 e2 = on_bind e1 [%expr fun [%p x] -> [%e e2]] in
   (* FIXME: in on_and, use "unique" variables *)
   let on_and =
