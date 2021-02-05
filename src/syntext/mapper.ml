@@ -36,23 +36,6 @@
  *   | Downto -> [%expr Syntext.Downto]
  *
  *
- * let let_of_simple simple_let simple_and rec_flag vbs e =
- *   assert (rec_flag = Nonrecursive);
- *   let ands =
- *     List.fold_left
- *       (fun ands vb ->
- *          [%expr [%e function_name conf ~ext "and"] [%e thunk ands] [%e thunk vb.pvb_expr]])
- *       (List.hd vbs).pvb_expr
- *       (List.tl vbs)
- *   in
- *   let pats =
- *     List.fold_left
- *       (fun pats vb -> Pat.tuple [pats; vb.pvb_pat])
- *       (List.hd vbs).pvb_pat
- *       (List.tl vbs)
- *   in
- *   [%expr [%e function_name conf ~ext "let"] [%e thunk ands] [%e thunk ~p:pats e]]
- *
  * let match_of_simple simple_match try_ e cases =
  *   (\* match e with
  *      | ... -> ...

@@ -1,6 +1,7 @@
 open Migrate_parsetree
 open OCaml_411.Ast
 open Asttypes
+open Ast_helper
 open Parsetree
 
 type t = {
@@ -20,9 +21,26 @@ let create_on_sequence ?on_sequence () =
   | None -> fun _ _ -> assert false (* FIXME: bind *)
 
 let create_on_let_from_simple ?on_and on_simple_let =
-  ignore on_and;
-  ignore on_simple_let;
-  fun _ -> assert false
+  let on_and () =
+    match on_and with
+    | Some on_and -> on_and
+    | None -> assert false
+  in
+  fun rec_flag vbs e ->
+  assert (rec_flag = Nonrecursive);
+  let ands =
+    List.fold_left
+      (fun ands vb -> on_and () ands vb)
+      (List.hd vbs).pvb_expr
+      (List.tl vbs)
+  in
+  let pats =
+    List.fold_left
+      (fun pats vb -> Pat.tuple [pats; vb.pvb_pat])
+      (List.hd vbs).pvb_pat
+      (List.tl vbs)
+  in
+  on_simple_let pats ands e
 
 let create_on_let ?on_let ?on_simple_let ?on_and () =
   match on_let with
