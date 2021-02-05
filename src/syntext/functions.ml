@@ -78,11 +78,13 @@ let create_on_let_from_bind ?on_return on_bind =
   let on_simple_let x e1 e2 = on_bind e1 [%expr fun [%p x] -> [%e e2]] in
   (* FIXME: in on_and, use "unique" variables *)
   let on_and =
+    (* With just bind, we can create the simple let. However, return is required
+       to build the and. *)
     match on_return with
-    | None -> None
     | Some on_return ->
       Some (fun e1 e2 ->
           on_bind e1 [%expr fun v1 -> [%e on_bind e2 [%expr fun v2 -> [%e on_return [%expr (v1, v2)]]]]])
+    | None -> None
   in
   create_on_let_from_simple ?on_and on_simple_let
 
