@@ -15,6 +15,8 @@ type t = {
   on_assert     : expression -> expression ;
 }
 
+(* FIXME: replace all the assert by proper error reporting *)
+
 (* ============================== [ Sequence ] ============================== *)
 
 let create_on_sequence ?on_sequence () =
