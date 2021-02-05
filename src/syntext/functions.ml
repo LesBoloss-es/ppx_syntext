@@ -19,10 +19,19 @@ type t = {
 
 (* ============================== [ Sequence ] ============================== *)
 
-let create_on_sequence ?on_sequence () =
+let create_on_sequence_from_bind on_bind =
+  fun e1 e2 ->
+  (* FIXME: this forces the first element of a sequence to be of type unit, but
+     this is usually just a warning in OCaml. Maybe there is a way to do that? *)
+  on_bind e1 [%expr fun () -> [%e e2]]
+
+let create_on_sequence ?on_sequence ?on_bind () =
   match on_sequence with
   | Some on_sequence -> on_sequence
-  | None -> fun _ _ -> assert false (* FIXME: bind *)
+  | None ->
+    match on_bind with
+    | Some on_bind -> create_on_sequence_from_bind on_bind
+    | None -> fun _ _ -> assert false
 
 (* ================================ [ Let ] ================================= *)
 
@@ -48,13 +57,28 @@ let create_on_let_from_simple ?on_and on_simple_let =
   in
   on_simple_let pats ands e
 
-let create_on_let ?on_let ?on_simple_let ?on_and () =
+let create_on_let_from_bind ?on_return on_bind =
+  let on_simple_let x e1 e2 = on_bind e1 [%expr fun [%p x] -> [%e e2]] in
+  (* FIXME: in on_and, use "unique" variables *)
+  let on_and =
+    match on_return with
+    | None -> None
+    | Some on_return ->
+      Some (fun e1 e2 ->
+          on_bind e1 [%expr fun v1 -> [%e on_bind e2 [%expr fun v2 -> [%e on_return [%expr (v1, v2)]]]]])
+  in
+  create_on_let_from_simple ?on_and on_simple_let
+
+let create_on_let ?on_let ?on_simple_let ?on_and ?on_return ?on_bind () =
   match on_let with
   | Some on_let -> on_let
   | None ->
     match on_simple_let with
     | Some on_simple_let -> create_on_let_from_simple on_simple_let ?on_and
-    | None -> fun _ _ _ -> assert false (* FIXME: bind *)
+    | None ->
+      match on_bind with
+      | Some on_bind -> create_on_let_from_bind ?on_return on_bind
+      | None -> fun _ _ _ -> assert false
 
 (* =============================== [ Match ] ================================ *)
 

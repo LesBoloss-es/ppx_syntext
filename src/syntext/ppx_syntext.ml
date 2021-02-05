@@ -54,17 +54,19 @@ let create
     ?on_while
     ?on_for
     ?on_assert          ?on_assert_false
+    ?on_return ?on_bind
     name
   =
   let functions = {
-      on_let        = create_on_let        ?on_let        ?on_simple_let ?on_and () ;
-      on_match      = create_on_match      ?on_match      ?on_simple_match ?on_try () ;
-      on_try        = create_on_try        ?on_try () ;
-      on_ifthenelse = create_on_ifthenelse ?on_ifthenelse ?on_simple_ifthenelse ?on_simple_ifthen () ;
-      on_sequence   = create_on_sequence   ?on_sequence () ;
-      on_while      = create_on_while      ?on_while () ;
-      on_for        = create_on_for        ?on_for () ;
-      on_assert     = create_on_assert     ?on_assert     ?on_assert_false () ;
+    (*on_*          = create_on_*          ?on_*          ............ ?on_simple_* ............. ?on_return ?on_bind () *)
+      on_let        = create_on_let        ?on_let        ?on_simple_let ?on_and                  ?on_return ?on_bind () ;
+      on_match      = create_on_match      ?on_match      ?on_simple_match ?on_try                                    () ;
+      on_try        = create_on_try        ?on_try                                                                    () ;
+      on_ifthenelse = create_on_ifthenelse ?on_ifthenelse ?on_simple_ifthenelse ?on_simple_ifthen                     () ;
+      on_sequence   = create_on_sequence   ?on_sequence                                                      ?on_bind () ;
+      on_while      = create_on_while      ?on_while                                                                  () ;
+      on_for        = create_on_for        ?on_for                                                                    () ;
+      on_assert     = create_on_assert     ?on_assert     ?on_assert_false                                            () ;
     }
   in
   let mapper = mapper_of_functions name functions in
