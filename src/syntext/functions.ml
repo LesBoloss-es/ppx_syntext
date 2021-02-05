@@ -32,30 +32,46 @@ let create_on_let ?on_let ?on_simple_let ?on_and () =
     | Some on_simple_let -> create_on_let_from_simple on_simple_let ?on_and
     | None -> fun _ _ _ -> assert false (* FIXME: bind *)
 
-let create_on_match ?on_match ?on_simple_match ?on_try () =
-  ignore on_match;
+let create_on_match_from_simple on_simple_match ?on_try =
   ignore on_simple_match;
   ignore on_try;
-  fun _ -> assert false
+  fun _ _ -> assert false
+
+let create_on_match ?on_match ?on_simple_match ?on_try () =
+  match on_match with
+  | Some on_match -> on_match
+  | None ->
+    match on_simple_match with
+    | Some on_simple_match -> create_on_match_from_simple on_simple_match ?on_try
+    | None -> fun _ _ -> assert false
 
 let create_on_try ?on_try () =
   match on_try with
   | Some on_try -> on_try
   | None -> fun _ _ -> assert false
 
-let create_on_ifthenelse ?on_ifthenelse ?on_simple_ifthenelse ?on_simple_ifthen () =
-  ignore on_ifthenelse;
-  ignore on_simple_ifthenelse;
+let create_on_ifthenelse_from_simple ?on_simple_ifthen ?on_simple_ifthenelse () =
   ignore on_simple_ifthen;
-  fun _ -> assert false
+  ignore on_simple_ifthenelse;
+  fun _ _ _ -> assert false
+
+let create_on_ifthenelse ?on_ifthenelse ?on_simple_ifthen ?on_simple_ifthenelse () =
+  match on_ifthenelse with
+  | Some on_ifthenelse -> on_ifthenelse
+  | None ->
+    match on_simple_ifthen, on_simple_ifthenelse with
+    | Some _, _ | _, Some _ -> create_on_ifthenelse_from_simple ?on_simple_ifthen ?on_simple_ifthenelse ()
+    | None, None -> fun _ _ _ -> assert false
 
 let create_on_while ?on_while () =
-  ignore on_while;
-  fun _ -> assert false
+  match on_while with
+  | Some on_while -> on_while
+  | None -> fun _ _ -> assert false
 
 let create_on_for ?on_for () =
-  ignore on_for;
-  fun _ -> assert false
+  match on_for with
+  | Some on_for -> on_for
+  | None -> fun _ _ _ _ -> assert false
 
 let create_on_assert ?on_assert ?on_assert_false () =
   ignore on_assert;
