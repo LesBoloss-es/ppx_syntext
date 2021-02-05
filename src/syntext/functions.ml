@@ -42,10 +42,27 @@ let create_on_let_from_simple ?on_and on_simple_let =
     | None -> assert false
   in
   fun rec_flag vbs e ->
+
+  (* let x1 = e1
+     and x2 = e2
+     ...
+     and xn = en
+     in
+     e
+
+     =>
+
+     let (...(x1, x2), ... xn) = (...(e1, e2), ... en) in e
+
+     except we do not build (...(e1, e2), ... en) ourselves but we ask on_and, so:
+
+     let (...(x1, x2), ... xn) = (on_and ... (on_and e1 e2) en) in e
+  *)
+
   assert (rec_flag = Nonrecursive);
   let ands =
     List.fold_left
-      (fun ands vb -> on_and () ands vb)
+      (fun ands vb -> on_and () ands vb.pvb_expr)
       (List.hd vbs).pvb_expr
       (List.tl vbs)
   in
