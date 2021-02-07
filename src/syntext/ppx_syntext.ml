@@ -49,7 +49,7 @@ let create_applies ?applies_on name =
   (match applies_on with
    | Some applies_on -> applies_on
    | None -> name)
-  |> (^) "(syntext.)?"
+  |> (fun r -> "(syntext.)?(" ^ r ^ ")")
   |> SimpleRegexp.from_string
   |> SimpleRegexp.matches
 

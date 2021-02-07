@@ -43,7 +43,7 @@ let on_try e cases =
 let on_assert_false () = [%expr try assert false with exn -> Error exn]
 let on_assert e = [%expr if [%e e] then Ok () else [%e on_assert_false ()]]
 
-let applies_on = "res(ult)?(.ok)?"
+let applies_on = "ok|res(ult)?(.ok)?"
 
 let () = Ppx_syntext.(register (create "result.ok" ~applies_on
            ~on_return ~on_bind ~on_try ~on_assert ~on_assert_false))
@@ -54,7 +54,7 @@ let on_return e = [%expr Error [%e e]]
 
 let on_bind r f = [%expr match [%e r] with Ok x -> Ok x | Error e -> [%e f] e]
 
-let applies_on = "res(ult)?.err(or)?"
+let applies_on = "(res(ult)?.)?err(or)?"
 
 let () = Ppx_syntext.(register (create "result.error" ~applies_on
                                   ~on_return ~on_bind))
