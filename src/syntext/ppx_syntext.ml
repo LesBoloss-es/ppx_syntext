@@ -45,29 +45,13 @@ type t = {
   mapper : mapper ;
 }
 
-let wrap_applies_on applies_on =
-  let syntext = "syntext." in
-  let l_syntext = String.length syntext in
-  fun txt ->
-    let l_txt = String.length txt in
-    let txt =
-      if l_txt >= l_syntext && String.sub txt 0 l_syntext = syntext then
-        String.sub txt l_syntext (l_txt - l_syntext)
-      else
-        txt
-    in
-    applies_on txt
-
-let create_applies_from_regexp regexp =
-  let regexp = Str.regexp regexp in
-  wrap_applies_on (fun txt -> Str.string_match regexp txt 0)
-
-let create_applies ?applies_on ?applies_on_regexp name =
-  match applies_on, applies_on_regexp with
-  | Some _          , Some _                 -> assert false
-  | Some applies_on , None                   -> wrap_applies_on applies_on
-  | None            , Some applies_on_regexp -> create_applies_from_regexp applies_on_regexp
-  | None            , None                   -> create_applies_from_regexp name
+let create_applies ?applies_on name =
+  (match applies_on with
+   | Some applies_on -> applies_on
+   | None -> name)
+  |> (^) "(syntext.)?"
+  |> SimpleRegexp.from_string
+  |> SimpleRegexp.matches
 
 let create
     (* Functions *)
@@ -82,7 +66,7 @@ let create
     ?on_return ?on_bind
 
     (* Applies on & Name *)
-    ?applies_on         ?applies_on_regexp
+    ?applies_on
     name
   =
   let functions = {
@@ -97,7 +81,7 @@ let create
       on_assert     = create_on_assert     ?on_assert     ?on_assert_false                                            () ;
     }
   in
-  let applies = create_applies ?applies_on ?applies_on_regexp name in
+  let applies = create_applies ?applies_on name in
   let mapper = mapper_of_functions applies functions in
   { name ; mapper }
 

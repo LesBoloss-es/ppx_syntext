@@ -1,3 +1,5 @@
+(ocamllex simpleRegexp)
+
 (library
  (name ppx_syntext)
  (public_name ppx_syntext)
