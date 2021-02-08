@@ -63,17 +63,22 @@ let create
     ?on_while
     ?on_for
     ?on_assert          ?on_assert_false
+
+    (* Monadic functions *)
     ?on_return ?on_bind
+    ?on_return_error ?on_bind_error
 
     (* Applies on & Name *)
     ?applies_on
     name
   =
-  let functions = {
+  let functions =
+    let on_try = create_on_try ?on_try ?on_return_error ?on_bind_error () in
+    {
     (*on_*          = create_on_*          ?on_*          ............ ?on_simple_* ............. ?on_return ?on_bind () *)
       on_let        = create_on_let        ?on_let        ?on_simple_let ?on_and                  ?on_return ?on_bind () ;
-      on_match      = create_on_match      ?on_match      ?on_simple_match ?on_try                                    () ;
-      on_try        = create_on_try        ?on_try                                                                    () ;
+      on_match      = create_on_match      ?on_match      ?on_simple_match ~on_try                                    () ;
+      on_try                                                                                                             ;
       on_ifthenelse = create_on_ifthenelse ?on_ifthenelse ?on_simple_ifthenelse ?on_simple_ifthen                     () ;
       on_sequence   = create_on_sequence   ?on_sequence                                                      ?on_bind () ;
       on_while      = create_on_while      ?on_while                                                                  () ;

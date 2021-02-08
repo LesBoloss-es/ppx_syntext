@@ -108,7 +108,7 @@ let create_on_let ?on_let ?on_simple_let ?on_and ?on_return ?on_bind () =
 
 (* =============================== [ Match ] ================================ *)
 
-let create_on_match_from_simple ?on_try on_simple_match =
+let create_on_match_from_simple ~on_try on_simple_match =
   fun e cases ->
 
   (* match e with
@@ -149,24 +149,31 @@ let create_on_match_from_simple ?on_try on_simple_match =
   if exns = [] then
     match_
   else
-    match on_try with
-    | Some on_try -> on_try match_ exns
-    | None -> assert false
+    on_try match_ exns
 
-let create_on_match ?on_match ?on_simple_match ?on_try () =
+let create_on_match ?on_match ?on_simple_match ~on_try () =
   match on_match with
   | Some on_match -> on_match
   | None ->
     match on_simple_match with
-    | Some on_simple_match -> create_on_match_from_simple on_simple_match ?on_try
+    | Some on_simple_match -> create_on_match_from_simple on_simple_match ~on_try
     | None -> fun _ _ -> assert false
 
 (* ================================ [ Try ] ================================= *)
 
-let create_on_try ?on_try () =
+let create_on_try_from_bind_error ~on_return_error ~on_bind_error () =
+  fun e cases ->
+  let cases = Helpers.add_catchall_if_needed cases on_return_error in
+  on_bind_error e (Exp.function_ cases)
+
+let create_on_try ?on_try ?on_return_error ?on_bind_error () =
   match on_try with
   | Some on_try -> on_try
-  | None -> fun _ _ -> assert false
+  | None ->
+    match on_return_error, on_bind_error with
+    | Some on_return_error, Some on_bind_error -> create_on_try_from_bind_error ~on_return_error ~on_bind_error ()
+    | Some _, None | None, Some _ -> assert false
+    | None, None -> fun _ _ -> assert false
 
 (* ================================= [ If ] ================================= *)
 
