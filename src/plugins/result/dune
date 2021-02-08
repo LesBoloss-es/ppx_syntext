@@ -1,6 +1,6 @@
 (library
- (name ppx_syntext_res)
- (public_name ppx_syntext.res)
+ (name ppx_syntext_result)
+ (public_name ppx_syntext.result)
  (libraries ppx_syntext)
  (preprocess (pps ppx_tools_versioned.metaquot_411))
  (kind ppx_rewriter))
