@@ -19,7 +19,7 @@ type t = {
 
 (* ============================== [ Sequence ] ============================== *)
 
-let create_on_sequence_from_bind on_bind =
+let create_on_sequence_from_monad on_bind =
   fun e1 e2 ->
   (* FIXME: this forces the first element of a sequence to be of type unit, but
      this is usually just a warning in OCaml. Maybe there is a way to do that? *)
@@ -30,7 +30,7 @@ let create_on_sequence ?on_sequence ?on_bind () =
   | Some on_sequence -> on_sequence
   | None ->
     match on_bind with
-    | Some on_bind -> create_on_sequence_from_bind on_bind
+    | Some on_bind -> create_on_sequence_from_monad on_bind
     | None -> fun _ _ -> assert false
 
 (* ================================ [ Let ] ================================= *)
@@ -74,7 +74,7 @@ let create_on_let_from_simple ?on_and on_simple_let =
   in
   on_simple_let pats ands e
 
-let create_on_let_from_bind ?on_return on_bind =
+let create_on_let_from_monad ?on_return on_bind =
   (* We can easily create a simple let and a and from bind and return.
 
      let x = e1 in e2     =>     bind e1 (fun x -> e2)
@@ -103,7 +103,7 @@ let create_on_let ?on_let ?on_simple_let ?on_and ?on_return ?on_bind () =
     | Some on_simple_let -> create_on_let_from_simple on_simple_let ?on_and
     | None ->
       match on_bind with
-      | Some on_bind -> create_on_let_from_bind ?on_return on_bind
+      | Some on_bind -> create_on_let_from_monad ?on_return on_bind
       | None -> fun _ _ _ -> assert false
 
 (* =============================== [ Match ] ================================ *)
@@ -151,7 +151,7 @@ let create_on_match_from_simple ~on_try on_simple_match =
   else
     on_try match_ exns
 
-let create_on_match_from_bind ~on_try on_bind =
+let create_on_match_from_monad ~on_try on_bind =
   create_on_match_from_simple ~on_try (fun e cases -> on_bind e (Exp.function_ cases))
 
 let create_on_match ?on_match ?on_simple_match ~on_try ?on_bind () =
@@ -162,12 +162,12 @@ let create_on_match ?on_match ?on_simple_match ~on_try ?on_bind () =
     | Some on_simple_match -> create_on_match_from_simple on_simple_match ~on_try
     | None ->
       match on_bind with
-      | Some on_bind -> create_on_match_from_bind ~on_try on_bind
+      | Some on_bind -> create_on_match_from_monad ~on_try on_bind
       | None -> fun _ _ -> assert false
 
 (* ================================ [ Try ] ================================= *)
 
-let create_on_try_from_bind_error ~on_return_error ~on_bind_error () =
+let create_on_try_from_monad_error ~on_return_error ~on_bind_error () =
   fun e cases ->
   let cases = Helpers.add_catchall_if_needed cases on_return_error in
   on_bind_error e (Exp.function_ cases)
@@ -177,13 +177,13 @@ let create_on_try ?on_try ?on_return_error ?on_bind_error () =
   | Some on_try -> on_try
   | None ->
     match on_return_error, on_bind_error with
-    | Some on_return_error, Some on_bind_error -> create_on_try_from_bind_error ~on_return_error ~on_bind_error ()
+    | Some on_return_error, Some on_bind_error -> create_on_try_from_monad_error ~on_return_error ~on_bind_error ()
     | Some _, None | None, Some _ -> assert false
     | None, None -> fun _ _ -> assert false
 
 (* ================================= [ If ] ================================= *)
 
-let create_on_ifthenelse_from_bind ?on_return on_bind =
+let create_on_ifthenelse_from_monad ?on_return on_bind =
   (* if%ext e1 then e2             =>     e1 >>= function true -> e2 | false -> return () *)
   (* if%ext e1 then e2 else e3     =>     e1 >>= function true -> e2 | false -> e3 *)
   fun e1 e2 e3 ->
@@ -212,12 +212,12 @@ let create_on_ifthenelse ?on_ifthenelse ?on_simple_ifthen ?on_simple_ifthenelse 
     | Some _, _ | _, Some _ -> create_on_ifthenelse_from_simple ?on_simple_ifthen ?on_simple_ifthenelse ()
     | None, None ->
       match on_bind with
-      | Some on_bind -> create_on_ifthenelse_from_bind ?on_return on_bind
+      | Some on_bind -> create_on_ifthenelse_from_monad ?on_return on_bind
       | None -> fun _ _ _ -> assert false
 
 (* =============================== [ While ] ================================ *)
 
-let create_on_while_from_bind ~on_return ~on_bind () =
+let create_on_while_from_monad ~on_return ~on_bind () =
   (* while%ext e1 do e2 done
 
      =>
@@ -241,12 +241,12 @@ let create_on_while ?on_while ?on_return ?on_bind () =
   | Some on_while -> on_while
   | None ->
     match on_return, on_bind with
-    | Some on_return, Some on_bind -> create_on_while_from_bind ~on_return ~on_bind ()
+    | Some on_return, Some on_bind -> create_on_while_from_monad ~on_return ~on_bind ()
     | _ -> fun _ _ -> assert false
 
 (* ================================ [ For ] ================================= *)
 
-let create_on_for_from_bind ~on_return ~on_bind () =
+let create_on_for_from_monad ~on_return ~on_bind () =
   (* for%ext i = start dir stop; do e done
 
      => (if dir = Up)
@@ -279,12 +279,12 @@ let create_on_for ?on_for ?on_return ?on_bind () =
   | Some on_for -> on_for
   | None ->
     match on_return, on_bind with
-    | Some on_return, Some on_bind -> create_on_for_from_bind ~on_return ~on_bind ()
+    | Some on_return, Some on_bind -> create_on_for_from_monad ~on_return ~on_bind ()
     | _ -> fun _ _ _ _ -> assert false
 
 (* =============================== [ Assert ] =============================== *)
 
-let create_on_assert_from_bind ~on_return ~on_bind ~on_return_error () =
+let create_on_assert_from_monad ~on_return ~on_bind ~on_return_error () =
   (* assert%ext e     =>     e >>= function true -> return () | false -> return "assert false" *)
 
   fun e ->
@@ -300,7 +300,7 @@ let create_on_assert ?on_assert ?on_assert_false ?on_return ?on_bind ?on_return_
     | Some on_assert -> on_assert
     | None ->
       match on_return, on_bind, on_return_error with
-      | Some on_return, Some on_bind, Some on_return_error -> create_on_assert_from_bind ~on_return ~on_bind ~on_return_error ()
+      | Some on_return, Some on_bind, Some on_return_error -> create_on_assert_from_monad ~on_return ~on_bind ~on_return_error ()
       | _ -> fun _ -> assert false
   in
   fun e ->
