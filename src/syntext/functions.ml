@@ -111,15 +111,15 @@ let create_on_let ?on_let ?on_simple_let ?on_and ?on_return ?on_bind () =
 let create_on_match_from_simple ~on_try on_simple_match =
   fun e cases ->
 
-  (* match e with
+  (* match%ext e with
      | ... -> ...
      | exception E -> ...
      | exception F -> ...
 
      =>
 
-     try
-       match e with
+     try%ext
+       match%ext e with
        | ... -> ...
      with
      | E -> ...
@@ -151,13 +151,19 @@ let create_on_match_from_simple ~on_try on_simple_match =
   else
     on_try match_ exns
 
-let create_on_match ?on_match ?on_simple_match ~on_try () =
+let create_on_match_from_bind ~on_try on_bind =
+  create_on_match_from_simple ~on_try (fun e cases -> on_bind e (Exp.function_ cases))
+
+let create_on_match ?on_match ?on_simple_match ~on_try ?on_bind () =
   match on_match with
   | Some on_match -> on_match
   | None ->
     match on_simple_match with
     | Some on_simple_match -> create_on_match_from_simple on_simple_match ~on_try
-    | None -> fun _ _ -> assert false
+    | None ->
+      match on_bind with
+      | Some on_bind -> create_on_match_from_bind ~on_try on_bind
+      | None -> fun _ _ -> assert false
 
 (* ================================ [ Try ] ================================= *)
 
