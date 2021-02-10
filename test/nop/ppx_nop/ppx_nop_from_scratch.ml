@@ -19,5 +19,5 @@ let expr mapper = function
 let mapper = { default_mapper with expr }
 
 let () =
-  Driver.register ~name:"ppx_nop" ~args:[] Versions.ocaml_411
+  Driver.register ~name:"ppx_nop_from_scratch" ~args:[] Versions.ocaml_411
     (fun _config _cookies -> mapper)

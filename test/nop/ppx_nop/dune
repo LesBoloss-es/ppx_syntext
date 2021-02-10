@@ -1,0 +1,26 @@
+(library
+ (name ppx_nop_from_scratch)
+ (modules ppx_nop_from_scratch)
+ (libraries compiler-libs.common ocaml-migrate-parsetree ppx_tools_versioned)
+ (kind ppx_rewriter))
+
+(library
+ (name ppx_nop_all)
+ (modules ppx_nop_all)
+ (libraries ppx_syntext)
+ (preprocess (pps ppx_tools_versioned.metaquot_411))
+ (kind ppx_rewriter))
+
+(library
+ (name ppx_nop_simple)
+ (modules ppx_nop_simple)
+ (libraries ppx_syntext)
+ (preprocess (pps ppx_tools_versioned.metaquot_411))
+ (kind ppx_rewriter))
+
+(library
+ (name ppx_nop_monad)
+ (modules ppx_nop_monad)
+ (libraries ppx_syntext)
+ (preprocess (pps ppx_tools_versioned.metaquot_411))
+ (kind ppx_rewriter))
