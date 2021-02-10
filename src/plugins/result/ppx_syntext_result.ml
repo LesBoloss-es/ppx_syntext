@@ -5,28 +5,33 @@ let on_return x =
   [%expr Ok [%e x]]
 
 let on_bind r f =
+  let px, x = Ppx_syntext.Helpers.fresh_variable () in
+  let pe, e = Ppx_syntext.Helpers.fresh_variable () in
   [%expr
     match [%e r] with
-    | Ok syntext_var_x -> [%e f] x
-    | Error syntext_var_e -> Error syntext_var_e]
+    | Ok [%p px] -> [%e f] [%e x]
+    | Error [%p pe] -> Error [%e e]]
 
 let on_return_error e =
   [%expr Error [%e e]]
 
 let on_bind_error r f =
+  let px, x = Ppx_syntext.Helpers.fresh_variable () in
+  let pe, e = Ppx_syntext.Helpers.fresh_variable () in
   [%expr
     match [%e r] with
-    | Ok syntext_var_x -> Ok syntext_var_x
-    | Error syntext_var_e -> [%e f] syntext_var_e]
+    | Ok [%p px] -> Ok [%e x]
+    | Error [%p pe] -> [%e f] [%e e]]
 
 let on_assert_false () =
   (* It is not necessary to sanitise the variable here, but we do it for
      consistency. Better safe than sorry. *)
+  let pe, e = Ppx_syntext.Helpers.fresh_variable () in
   [%expr
     try
       assert false
     with
-    | syntext_var_exn -> Error syntext_var_exn]
+    | [%p pe] -> Error [%e e]]
 
 let on_assert e =
   [%expr

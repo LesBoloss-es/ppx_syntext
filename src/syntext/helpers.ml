@@ -18,3 +18,12 @@ let add_catchall_if_needed cases f =
     cases
   else
     cases @ [Exp.case [%pat? any] (f [%expr any])]
+
+let fresh_variable =
+  let next_fresh_var = ref 0 in
+  fun () ->
+    incr next_fresh_var;
+    let str = "syntext_var_" ^ (string_of_int !next_fresh_var) in
+    let loc = !default_loc in
+    Pat.var { txt = str; loc },
+    Exp.ident { txt = Longident.Lident str; loc }

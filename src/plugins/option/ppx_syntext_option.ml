@@ -5,9 +5,10 @@ let on_return x =
   [%expr Some [%e x]]
 
 let on_bind o f =
+  let px, x = Ppx_syntext.Helpers.fresh_variable () in
   [%expr
     match [%e o] with
-    | Some syntext_var_x -> [%e f] syntext_var_x
+    | Some [%p px] -> [%e f] [%e x]
     | None -> None]
 
 let on_return_error x =
@@ -16,9 +17,10 @@ let on_return_error x =
     None]
 
 let on_bind_error o f =
+  let px, x = Ppx_syntext.Helpers.fresh_variable () in
   [%expr
     match [%e o] with
-    | Some syntext_var_x -> Some syntext_var_x
+    | Some [%p px] -> Some [%e x]
     | None -> [%e f] ()]
 
 let on_assert_false () =
