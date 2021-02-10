@@ -79,11 +79,11 @@ let create
       on_let        = create_on_let        ?on_let        ?on_simple_let ?on_and                  ?on_return ?on_bind () ;
       on_match      = create_on_match      ?on_match      ?on_simple_match ~on_try                           ?on_bind () ;
       on_try                                                                                                             ;
-      on_ifthenelse = create_on_ifthenelse ?on_ifthenelse ?on_simple_ifthenelse ?on_simple_ifthen            ?on_bind () ;
+      on_ifthenelse = create_on_ifthenelse ?on_ifthenelse ?on_simple_ifthenelse ?on_simple_ifthen ?on_return ?on_bind () ;
       on_sequence   = create_on_sequence   ?on_sequence                                                      ?on_bind () ;
-      on_while      = create_on_while      ?on_while                                                         ?on_bind () ;
-      on_for        = create_on_for        ?on_for                                                           ?on_bind () ;
-      on_assert     = create_on_assert     ?on_assert     ?on_assert_false                  ?on_bind ?on_return_error () ;
+      on_while      = create_on_while      ?on_while                                              ?on_return ?on_bind () ;
+      on_for        = create_on_for        ?on_for                                                ?on_return ?on_bind () ;
+      on_assert     = create_on_assert     ?on_assert     ?on_assert_false       ?on_return ?on_bind ?on_return_error () ;
     }
   in
   let applies = create_applies ?applies_on name in

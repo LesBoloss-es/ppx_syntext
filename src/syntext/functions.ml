@@ -183,6 +183,15 @@ let create_on_try ?on_try ?on_return_error ?on_bind_error () =
 
 (* ================================= [ If ] ================================= *)
 
+let create_on_ifthenelse_from_bind ?on_return on_bind =
+  (* if%ext e1 then e2             =>     e1 >>= function true -> e2 | false -> return () *)
+  (* if%ext e1 then e2 else e3     =>     e1 >>= function true -> e2 | false -> e3 *)
+  fun e1 e2 e3 ->
+  match e3, on_return with
+  | None, None -> assert false
+  | None, Some on_return -> on_bind e1 Exp.(function_ [case [%pat? true] e2; case [%pat? false] (on_return [%expr ()])])
+  | Some e3, _           -> on_bind e1 Exp.(function_ [case [%pat? true] e2; case [%pat? false] e3])
+
 let create_on_ifthenelse_from_simple ?on_simple_ifthen ?on_simple_ifthenelse () =
   fun e1 e2 e3 ->
   match e3 with
@@ -195,38 +204,106 @@ let create_on_ifthenelse_from_simple ?on_simple_ifthen ?on_simple_ifthenelse () 
      | Some on_simple_ifthenelse -> on_simple_ifthenelse e1 e2 e3
      | None -> assert false)
 
-let create_on_ifthenelse ?on_ifthenelse ?on_simple_ifthen ?on_simple_ifthenelse () =
+let create_on_ifthenelse ?on_ifthenelse ?on_simple_ifthen ?on_simple_ifthenelse ?on_return ?on_bind () =
   match on_ifthenelse with
   | Some on_ifthenelse -> on_ifthenelse
   | None ->
     match on_simple_ifthen, on_simple_ifthenelse with
     | Some _, _ | _, Some _ -> create_on_ifthenelse_from_simple ?on_simple_ifthen ?on_simple_ifthenelse ()
-    | None, None -> fun _ _ _ -> assert false
+    | None, None ->
+      match on_bind with
+      | Some on_bind -> create_on_ifthenelse_from_bind ?on_return on_bind
+      | None -> fun _ _ _ -> assert false
 
 (* =============================== [ While ] ================================ *)
 
-let create_on_while ?on_while () =
+let create_on_while_from_bind ~on_return ~on_bind () =
+  (* while%ext e1 do e2 done
+
+     =>
+
+     let while_ () =
+       e1 >>= function
+       | true -> e2 >>= while_
+       | false -> return ()      *)
+
+  fun e1 e2 ->
+
+  [%expr let rec while_ () =
+           [%e on_bind e1 Exp.(function_ [
+               case [%pat? true] (on_bind e2 [%expr while_]) ;
+               case [%pat? false] (on_return [%expr ()])
+             ])]
+    in while_ ()]
+
+let create_on_while ?on_while ?on_return ?on_bind () =
   match on_while with
   | Some on_while -> on_while
-  | None -> fun _ _ -> assert false
+  | None ->
+    match on_return, on_bind with
+    | Some on_return, Some on_bind -> create_on_while_from_bind ~on_return ~on_bind ()
+    | _ -> fun _ _ -> assert false
 
 (* ================================ [ For ] ================================= *)
 
-let create_on_for ?on_for () =
+let create_on_for_from_bind ~on_return ~on_bind () =
+  (* for%ext i = start dir stop; do e done
+
+     => (if dir = Up)
+
+     let rec for_ j =
+       if j > stop then
+         return ()
+       else
+         (let i = j in e) >>= fun () -> for_ (j + 1)   *)
+
+  fun i start stop dir e ->
+  let j_gt_stop, j_plus_1 =
+    match dir with
+    | Upto -> [%expr j > [%e stop]], [%expr j + 1]
+    | Downto -> [%expr j < [%e stop]], [%expr j - 1]
+  in
+  [%expr let rec for_ j =
+           if [%e j_gt_stop] then
+             [%e on_return [%expr ()]]
+           else
+             [%e on_bind [%expr let [%p i] = j in [%e e]]
+                 [%expr fun () -> for_ [%e j_plus_1]]]
+    in
+    for_ [%e start]]
+
+(* FIXME: on_simple_for = for i = 0 to n do ... done *)
+
+let create_on_for ?on_for ?on_return ?on_bind () =
   match on_for with
   | Some on_for -> on_for
-  | None -> fun _ _ _ _ -> assert false
+  | None ->
+    match on_return, on_bind with
+    | Some on_return, Some on_bind -> create_on_for_from_bind ~on_return ~on_bind ()
+    | _ -> fun _ _ _ _ -> assert false
 
 (* =============================== [ Assert ] =============================== *)
 
-let create_on_assert ?on_assert ?on_assert_false () =
-  function
-  | [%expr false] ->
-    (match on_assert_false, on_assert with
-     | Some on_assert_false, _ -> on_assert_false ()
-     | None, Some on_assert -> on_assert [%expr false]
-     | None, None -> assert false)
-  | e ->
-    (match on_assert with
-     | Some on_assert -> on_assert e
-     | None -> assert false)
+let create_on_assert_from_bind ~on_return ~on_bind ~on_return_error () =
+  (* assert%ext e     =>     e >>= function true -> return () | false -> return "assert false" *)
+
+  fun e ->
+
+  on_bind e Exp.(function_ [
+      case [%pat? true] (on_return [%expr ()]);
+      case [%pat? false] [%expr try assert false with exn -> [%e on_return_error [%expr exn]]]
+    ])
+
+let create_on_assert ?on_assert ?on_assert_false ?on_return ?on_bind ?on_return_error () =
+  let on_assert =
+    match on_assert with
+    | Some on_assert -> on_assert
+    | None ->
+      match on_return, on_bind, on_return_error with
+      | Some on_return, Some on_bind, Some on_return_error -> create_on_assert_from_bind ~on_return ~on_bind ~on_return_error ()
+      | _ -> fun _ -> assert false
+  in
+  fun e ->
+  match e, on_assert_false with
+  | [%expr false], Some on_assert_false -> on_assert_false ()
+  | e, _ -> on_assert e
