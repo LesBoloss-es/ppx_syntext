@@ -1,0 +1,3 @@
+(test
+ (name div)
+ (preprocess (pps ppx_syntext_result)))
