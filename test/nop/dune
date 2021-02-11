@@ -45,6 +45,10 @@
    (diff while_all.expected while_from_scratch.expected)
    (diff while_all.expected while_monad.expected)
    (diff while_all.expected while_simple.expected)
+
+   (diff while_nested_all.expected while_nested_from_scratch.expected)
+   (diff while_nested_all.expected while_nested_monad.expected)
+   (diff while_nested_all.expected while_nested_simple.expected)
 )))
 
 ;; ======================== [ ppx_nop_all ] ======================== ;;
@@ -93,6 +97,10 @@
 (executable (name while_all) (modules while_all) (preprocess (pps ppx_nop_all)))
 (rule (with-stdout-to while_all.expected (run ./while_all.exe)))
 
+(rule (action (copy while_nested.ml while_nested_all.ml)))
+(executable (name while_nested_all) (modules while_nested_all) (preprocess (pps ppx_nop_all)))
+(rule (with-stdout-to while_nested_all.expected (run ./while_nested_all.exe)))
+
 ;; ======================== [ ppx_nop_from_scratch ] ======================== ;;
 
 (rule (action (copy assert.ml assert_from_scratch.ml)))
@@ -138,6 +146,10 @@
 (rule (action (copy while.ml while_from_scratch.ml)))
 (executable (name while_from_scratch) (modules while_from_scratch) (preprocess (pps ppx_nop_from_scratch)))
 (rule (with-stdout-to while_from_scratch.expected (run ./while_from_scratch.exe)))
+
+(rule (action (copy while_nested.ml while_nested_from_scratch.ml)))
+(executable (name while_nested_from_scratch) (modules while_nested_from_scratch) (preprocess (pps ppx_nop_from_scratch)))
+(rule (with-stdout-to while_nested_from_scratch.expected (run ./while_nested_from_scratch.exe)))
 
 ;; ======================== [ ppx_nop_monad ] ======================== ;;
 
@@ -185,6 +197,10 @@
 (executable (name while_monad) (modules while_monad) (preprocess (pps ppx_nop_monad)))
 (rule (with-stdout-to while_monad.expected (run ./while_monad.exe)))
 
+(rule (action (copy while_nested.ml while_nested_monad.ml)))
+(executable (name while_nested_monad) (modules while_nested_monad) (preprocess (pps ppx_nop_monad)))
+(rule (with-stdout-to while_nested_monad.expected (run ./while_nested_monad.exe)))
+
 ;; ======================== [ ppx_nop_simple ] ======================== ;;
 
 (rule (action (copy assert.ml assert_simple.ml)))
@@ -230,3 +246,7 @@
 (rule (action (copy while.ml while_simple.ml)))
 (executable (name while_simple) (modules while_simple) (preprocess (pps ppx_nop_simple)))
 (rule (with-stdout-to while_simple.expected (run ./while_simple.exe)))
+
+(rule (action (copy while_nested.ml while_nested_simple.ml)))
+(executable (name while_nested_simple) (modules while_nested_simple) (preprocess (pps ppx_nop_simple)))
+(rule (with-stdout-to while_nested_simple.expected (run ./while_nested_simple.exe)))

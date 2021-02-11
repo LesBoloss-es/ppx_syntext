@@ -1,6 +1,8 @@
+let pf = Format.printf
+
 let () =
-  for%nop i = (print_endline "1"; 1) to (print_endline "3"; 3) do
-    for%nop j = (print_endline "75"; 75) downto (print_endline "71"; 71); do
-      Format.printf "for %d %d\n" i j
+  for%nop i = (pf "1\n"; 1) to (pf "3\n"; 3) do
+    for%nop j = (pf "75\n"; 75) downto (pf "71\n"; 71); do
+      pf "for %d %d\n" i j
     done
   done
