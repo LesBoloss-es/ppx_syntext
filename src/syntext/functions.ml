@@ -229,12 +229,15 @@ let create_on_while_from_monad ~on_return ~on_bind () =
 
   fun e1 e2 ->
 
-  [%expr let rec while_ () =
-           [%e on_bind e1 Exp.(function_ [
-               case [%pat? true] (on_bind e2 [%expr while_]) ;
-               case [%pat? false] (on_return [%expr ()])
+  let pwhile, ewhile = Helpers.fresh_variable () in
+
+  [%expr
+    let rec [%p pwhile] = fun () ->
+      [%e on_bind e1 Exp.(function_ [
+          case [%pat? true] (on_bind e2 ewhile) ;
+          case [%pat? false] (on_return [%expr ()])
              ])]
-    in while_ ()]
+    in [%e ewhile] ()]
 
 let create_on_while ?on_while ?on_return ?on_bind () =
   match on_while with
