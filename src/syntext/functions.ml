@@ -251,11 +251,16 @@ let create_on_for_from_monad ~on_return ~on_bind () =
 
      => (if dir = Up)
 
+     let j0 = start in
+     let jn = stop in
      let rec for_ j =
-       if j > stop then
+       if j > jn then
          return ()
        else
-         (let i = j in e) >>= fun () -> for_ (j + 1)   *)
+         (let i = j in e) >>= fun () -> for_ (j + 1)
+     in
+     for_ j0 *)
+
 
   fun i start stop dir e ->
 
