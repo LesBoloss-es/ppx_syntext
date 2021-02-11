@@ -264,6 +264,7 @@ let create_on_for_from_monad ~on_return ~on_bind () =
 
   fun i start stop dir e ->
 
+  let pfor, for_  = Helpers.fresh_variable () in
   let pj,  j  = Helpers.fresh_variable () in
   let pj0, j0 = Helpers.fresh_variable () in
   let pjn, jn = Helpers.fresh_variable () in
@@ -276,14 +277,14 @@ let create_on_for_from_monad ~on_return ~on_bind () =
   [%expr
     let [%p pj0] = [%e start] in
     let [%p pjn] = [%e stop] in
-    let rec for_ [%p pj] =
+    let rec [%p pfor] = fun [%p pj] ->
       if [%e j_gt_jn] then
         [%e on_return [%expr ()]]
       else
         [%e on_bind [%expr let [%p i] = [%e j] in [%e e]]
-            [%expr fun () -> for_ [%e j_plus_1]]]
+            [%expr fun () -> [%e for_] [%e j_plus_1]]]
     in
-    for_ [%e j0]]
+    [%e for_] [%e j0]]
 
 (* FIXME: on_simple_for = for i = 0 to n do ... done *)
 
