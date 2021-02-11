@@ -258,17 +258,19 @@ let create_on_for_from_monad ~on_return ~on_bind () =
          (let i = j in e) >>= fun () -> for_ (j + 1)   *)
 
   fun i start stop dir e ->
+  let pj, j = Helpers.fresh_variable () in
   let j_gt_stop, j_plus_1 =
     match dir with
-    | Upto -> [%expr j > [%e stop]], [%expr j + 1]
-    | Downto -> [%expr j < [%e stop]], [%expr j - 1]
+    | Upto -> [%expr [%e j] > [%e stop]], [%expr [%e j] + 1]
+    | Downto -> [%expr [%e j] < [%e stop]], [%expr [%e j] - 1]
   in
-  [%expr let rec for_ j =
-           if [%e j_gt_stop] then
-             [%e on_return [%expr ()]]
-           else
-             [%e on_bind [%expr let [%p i] = j in [%e e]]
-                 [%expr fun () -> for_ [%e j_plus_1]]]
+  [%expr
+    let rec for_ [%p pj] =
+      if [%e j_gt_stop] then
+        [%e on_return [%expr ()]]
+      else
+        [%e on_bind [%expr let [%p i] = [%e j] in [%e e]]
+            [%expr fun () -> for_ [%e j_plus_1]]]
     in
     for_ [%e start]]
 
