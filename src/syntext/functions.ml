@@ -306,9 +306,11 @@ let create_on_assert_from_monad ~on_return ~on_bind ~on_return_error () =
 
   fun e ->
 
+  let pexn, eexn = Helpers.fresh_variable () in
+
   on_bind e Exp.(function_ [
       case [%pat? true] (on_return [%expr ()]);
-      case [%pat? false] [%expr try assert false with exn -> [%e on_return_error [%expr exn]]]
+      case [%pat? false] [%expr try assert false with [%p pexn] -> [%e on_return_error eexn]]
     ])
 
 let create_on_assert ?on_assert ?on_assert_false ?on_return ?on_bind ?on_return_error () =
