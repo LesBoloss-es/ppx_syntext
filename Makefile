@@ -10,8 +10,10 @@ uninstall:
 	dune uninstall
 
 test:
+	sh test/nop/write-dune.sh > test/nop/dune
 	dune test
 
 clean:
 	dune clean
+	rm -f test/nop/dune
 	rm *.opam

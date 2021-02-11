@@ -4,3 +4,4 @@
 .merlin
 /*.install
 /*.opam
+/test/nop/dune
