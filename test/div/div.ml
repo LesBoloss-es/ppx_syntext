@@ -22,11 +22,11 @@ let map f = function
 let div_ifthen x y =
   if%res.ok map ((=) 0) y then
     assert%res.ok false;%res.ok
-  let%res.ok x = x in Ok (x / y)
+  let%res.ok x = x in Ok (x / Result.get_ok y)
 
 let div_ifthenelse x y =
   if%result.ok map ((=) 0) y then
     assert%result.ok false
   else
     let%result.ok x = x in
-    Ok (x / y)
+    Ok (x / Result.get_ok y)
