@@ -4,13 +4,26 @@ open Asttypes
 open Ast_helper
 open Parsetree
 
-type on_assert = expression -> expression
-type on_for = pattern -> expression -> expression -> direction_flag -> expression -> expression
-type on_ifthenelse = expression -> expression -> expression option -> expression
-type on_let = rec_flag -> value_binding list -> expression -> expression
+type on_assert =
+  expression -> expression
+
+type on_for =
+  pattern -> expression -> expression ->
+  direction_flag -> expression -> expression
+
+type on_ifthenelse =
+  expression -> expression -> expression option ->
+  expression
+
+type on_let =
+  rec_flag -> value_binding list -> expression -> expression
+
 type on_match = expression -> case list -> expression
+
 type on_sequence = expression -> expression -> expression
+
 type on_try = on_match
+
 type on_while = on_sequence
 
 type t = {
@@ -24,9 +37,19 @@ type t = {
   on_while      : on_while ;
 }
 
-(* FIXME: replace all the assert by proper error reporting *)
+let does_not_support ?(ppx_name="This PPX") ?requires construct =
+  Location.raise_errorf "%s does not support %s%a"
+    ppx_name construct
+    (fun fmt -> function
+       | None -> ()
+       | Some requires ->
+         Format.fprintf fmt "\n(requires %s)" requires)
+    requires
 
 (* =============================== [ Assert ] =============================== *)
+
+(* FIXME: we can be smarter here and support assert_false with just
+   on_return_error *)
 
 let create_on_assert_from_monad ~on_return ~on_bind ~on_return_error () =
   (* assert%ext false
@@ -57,14 +80,21 @@ let create_on_assert_from_monad ~on_return ~on_bind ~on_return_error () =
         case [%pat? false] assert_false
       ])
 
-let create_on_assert ?on_assert ?on_assert_false ?on_return ?on_bind ?on_return_error () =
+let create_on_assert
+    ?ppx_name
+    ?on_assert ?on_assert_false
+    ?on_return ?on_bind ?on_return_error
+    ()
+  =
   let on_assert =
     match on_assert with
     | Some on_assert -> on_assert
     | None ->
       match on_return, on_bind, on_return_error with
       | Some on_return, Some on_bind, Some on_return_error -> create_on_assert_from_monad ~on_return ~on_bind ~on_return_error ()
-      | _ -> fun _ -> assert false
+      | _ -> fun _ ->
+        does_not_support ?ppx_name "assert"
+          ~requires:"on_assert or on_return+on_bind+on_return_error"
   in
   fun e ->
   match e, on_assert_false with
@@ -115,88 +145,136 @@ let create_on_for_from_monad ~on_return ~on_bind () =
 
 (* FIXME: on_simple_for = for i = 0 to n do ... done *)
 
-let create_on_for ?on_for ?on_return ?on_bind () =
+let create_on_for
+    ?ppx_name
+    ?on_for ?on_return ?on_bind
+    ()
+  =
   match on_for with
   | Some on_for -> on_for
   | None ->
     match on_return, on_bind with
     | Some on_return, Some on_bind -> create_on_for_from_monad ~on_return ~on_bind ()
-    | _ -> fun _ _ _ _ -> assert false
+    | _ -> fun _ _ _ _ ->
+      does_not_support ?ppx_name "for"
+        ~requires:"on_for or on_return+on_bind"
 
 (* ================================= [ If ] ================================= *)
 
-let create_on_ifthenelse_from_monad ?on_return on_bind =
+(* FIXME: we can be a bit better here and and support the whole if is bind and
+   simple_ifthen are given but not return or simple_ifthenelse *)
+
+let create_on_ifthenelse_from_monad
+    ?ppx_name
+    ?on_return on_bind
+  =
   (* if%ext e1 then e2             =>     e1 >>= function true -> e2 | false -> return () *)
   (* if%ext e1 then e2 else e3     =>     e1 >>= function true -> e2 | false -> e3 *)
   fun e1 e2 e3 ->
   match e3, on_return with
-  | None, None -> assert false
-  | None, Some on_return -> on_bind e1 Exp.(function_ [case [%pat? true] e2; case [%pat? false] (on_return [%expr ()])])
-  | Some e3, _           -> on_bind e1 Exp.(function_ [case [%pat? true] e2; case [%pat? false] e3])
+  | None, None ->
+    does_not_support ?ppx_name "ifthen with no else"
+      ~requires:"on_ifthenelse or on_simple_ifthen or on_return+on_bind"
+  | None, Some on_return ->
+    on_bind e1 Exp.(function_ [case [%pat? true] e2; case [%pat? false] (on_return [%expr ()])])
+  | Some e3, _ ->
+    on_bind e1 Exp.(function_ [case [%pat? true] e2; case [%pat? false] e3])
 
-let create_on_ifthenelse_from_simple ?on_simple_ifthen ?on_simple_ifthenelse () =
+let create_on_ifthenelse_from_simple
+    ?ppx_name
+    ?on_simple_ifthen ?on_simple_ifthenelse
+    ()
+  =
   fun e1 e2 e3 ->
   match e3 with
   | None ->
-    (match on_simple_ifthen with
-     | Some on_simple_ifthen -> on_simple_ifthen e1 e2
-     | None -> assert false)
+    (
+      match on_simple_ifthen with
+      | Some on_simple_ifthen -> on_simple_ifthen e1 e2
+      | None ->
+        does_not_support ?ppx_name "ifthen with no else"
+          ~requires:"on_ifthenelse or on_simple_ifthen or on_return+on_bind"
+    )
   | Some e3 ->
-    (match on_simple_ifthenelse with
-     | Some on_simple_ifthenelse -> on_simple_ifthenelse e1 e2 e3
-     | None -> assert false)
+    (
+      match on_simple_ifthenelse with
+      | Some on_simple_ifthenelse -> on_simple_ifthenelse e1 e2 e3
+      | None ->
+        does_not_support ?ppx_name "ifthenelse (with else)"
+          ~requires:"on_ifthenelse or on_simple_ifthenelse or on_bind"
+    )
 
-let create_on_ifthenelse ?on_ifthenelse ?on_simple_ifthen ?on_simple_ifthenelse ?on_return ?on_bind () =
+let create_on_ifthenelse
+    ?ppx_name
+    ?on_ifthenelse
+    ?on_simple_ifthen ?on_simple_ifthenelse
+    ?on_return ?on_bind
+    ()
+  =
   match on_ifthenelse with
   | Some on_ifthenelse -> on_ifthenelse
   | None ->
     match on_simple_ifthen, on_simple_ifthenelse with
-    | Some _, _ | _, Some _ -> create_on_ifthenelse_from_simple ?on_simple_ifthen ?on_simple_ifthenelse ()
+    | Some _, _ | _, Some _ ->
+      create_on_ifthenelse_from_simple ?ppx_name ?on_simple_ifthen ?on_simple_ifthenelse ()
     | None, None ->
       match on_bind with
-      | Some on_bind -> create_on_ifthenelse_from_monad ?on_return on_bind
-      | None -> fun _ _ _ -> assert false
+      | Some on_bind ->
+        create_on_ifthenelse_from_monad ?ppx_name ?on_return on_bind
+      | None -> fun _ _ _ ->
+        does_not_support ?ppx_name "ifthenelse"
+          ~requires:"on_ifthenelse or on_simple_ifthen+on_simple_ifthenelse or on_return+on_bind"
 
 (* ================================ [ Let ] ================================= *)
 
-let create_on_let_from_simple ?on_and on_simple_let =
+let create_on_let_from_simple
+    ?ppx_name
+    ?on_and on_simple_let
+  =
+
   let on_and () =
     match on_and with
     | Some on_and -> on_and
-    | None -> assert false
+    | None ->
+      does_not_support ?ppx_name "and"
+        ~requires:"on_let or on_simple_let+on_and or on_return+on_bind"
   in
+
   fun rec_flag vbs e ->
 
-  (* let x1 = e1
-     and x2 = e2
-     ...
-     and xn = en
-     in
-     e
+    (* let x1 = e1
+       and x2 = e2
+       ...
+       and xn = en
+       in
+       e
 
-     =>
+       =>
 
-     let (...(x1, x2), ... xn) = (...(e1, e2), ... en) in e
+       let (...(x1, x2), ... xn) = (...(e1, e2), ... en) in e
 
-     except we do not build (...(e1, e2), ... en) ourselves but we ask on_and, so:
+       except we do not build (...(e1, e2), ... en) ourselves but we ask on_and, so:
 
-     let (...(x1, x2), ... xn) = (on_and ... (on_and e1 e2) en) in e
-  *)
+       let (...(x1, x2), ... xn) = (on_and ... (on_and e1 e2) en) in e
+    *)
 
-  assert (rec_flag = Nonrecursive);
-  let ands =
-    List.fold_left
-      (fun ands vb -> on_and () ands vb.pvb_expr)
-      (List.hd vbs).pvb_expr
-      (List.tl vbs)
-  in
-  let pats =
-    List.fold_left
-      (fun pats vb -> Pat.tuple [pats; vb.pvb_pat])
-      (List.hd vbs).pvb_pat
-      (List.tl vbs)
-  in
-  on_simple_let pats ands e
+    if rec_flag <> Nonrecursive then
+      does_not_support ?ppx_name "recursive let"
+        ~requires:"on_let";
+
+    let ands =
+      List.fold_left
+        (fun ands vb -> on_and () ands vb.pvb_expr)
+        (List.hd vbs).pvb_expr
+        (List.tl vbs)
+    in
+    let pats =
+      List.fold_left
+        (fun pats vb -> Pat.tuple [pats; vb.pvb_pat])
+        (List.hd vbs).pvb_pat
+        (List.tl vbs)
+    in
+    on_simple_let pats ands e
 
 let create_on_let_from_monad ?on_return on_bind =
   (* We can easily create a simple let and a and from bind and return.
@@ -222,20 +300,30 @@ let create_on_let_from_monad ?on_return on_bind =
   in
   create_on_let_from_simple ?on_and on_simple_let
 
-let create_on_let ?on_let ?on_simple_let ?on_and ?on_return ?on_bind () =
+let create_on_let
+    ?ppx_name
+    ?on_let
+    ?on_simple_let ?on_and
+    ?on_return ?on_bind
+    ()
+  =
   match on_let with
   | Some on_let -> on_let
   | None ->
     match on_simple_let with
-    | Some on_simple_let -> create_on_let_from_simple on_simple_let ?on_and
+    | Some on_simple_let ->
+      create_on_let_from_simple ?ppx_name on_simple_let ?on_and
     | None ->
       match on_bind with
-      | Some on_bind -> create_on_let_from_monad ?on_return on_bind
-      | None -> fun _ _ _ -> assert false
+      | Some on_bind ->
+        create_on_let_from_monad ?on_return on_bind
+      | None -> fun _ _ _ ->
+        does_not_support ?ppx_name "let"
+          ~requires:"on_let or on_simple_let or on_bind"
 
 (* =============================== [ Match ] ================================ *)
 
-let create_on_match_from_simple ~on_try on_simple_match =
+let create_on_match_from_simple ?ppx_name ~on_try on_simple_match =
   fun e cases ->
 
   (* match%ext e with
@@ -265,7 +353,9 @@ let create_on_match_from_simple ~on_try on_simple_match =
       (fun case ->
          match case.pc_lhs.ppat_desc with
          | Ppat_exception pat -> { case with pc_lhs = pat }
-         | _ -> assert false)
+         | _ ->
+           does_not_support ?ppx_name "match with exception patterns"
+             ~requires:"on_match or on_simple_match+on_try or on_bind+on_return_error+on_bind_error")
       exns
   in
   let match_ = on_simple_match e cases in
@@ -278,19 +368,30 @@ let create_on_match_from_simple ~on_try on_simple_match =
   else
     on_try match_ exns
 
-let create_on_match_from_monad ~on_try on_bind =
-  create_on_match_from_simple ~on_try (fun e cases -> on_bind e (Exp.function_ cases))
+let create_on_match_from_monad ?ppx_name ~on_try on_bind =
+  create_on_match_from_simple ?ppx_name ~on_try
+    (fun e cases -> on_bind e (Exp.function_ cases))
 
-let create_on_match ?on_match ?on_simple_match ~on_try ?on_bind () =
+let create_on_match
+    ?ppx_name
+    ?on_match
+    ?on_simple_match ~on_try
+    ?on_bind
+    ()
+  =
   match on_match with
   | Some on_match -> on_match
   | None ->
     match on_simple_match with
-    | Some on_simple_match -> create_on_match_from_simple on_simple_match ~on_try
+    | Some on_simple_match ->
+      create_on_match_from_simple ?ppx_name on_simple_match ~on_try
     | None ->
       match on_bind with
-      | Some on_bind -> create_on_match_from_monad ~on_try on_bind
-      | None -> fun _ _ -> assert false
+      | Some on_bind ->
+        create_on_match_from_monad ?ppx_name ~on_try on_bind
+      | None -> fun _ _ ->
+        does_not_support ?ppx_name "match"
+          ~requires:"on_match or on_simple_match or on_bind"
 
 (* ============================== [ Sequence ] ============================== *)
 
@@ -300,13 +401,19 @@ let create_on_sequence_from_monad on_bind =
      this is usually just a warning in OCaml. Maybe there is a way to do that? *)
   on_bind e1 [%expr fun () -> [%e e2]]
 
-let create_on_sequence ?on_sequence ?on_bind () =
+let create_on_sequence
+    ?ppx_name
+    ?on_sequence ?on_bind
+    ()
+  =
   match on_sequence with
   | Some on_sequence -> on_sequence
   | None ->
     match on_bind with
     | Some on_bind -> create_on_sequence_from_monad on_bind
-    | None -> fun _ _ -> assert false
+    | None -> fun _ _ ->
+      does_not_support ?ppx_name "sequence"
+        ~requires:"on_sequence or on_bind"
 
 (* ================================ [ Try ] ================================= *)
 
@@ -315,18 +422,30 @@ let create_on_try_from_monad_error ~on_return_error ~on_bind_error () =
   let cases = Helpers.add_catchall_if_needed cases on_return_error in
   on_bind_error e (Exp.function_ cases)
 
-let create_on_try ?on_try ?on_return_error ?on_bind_error () =
+let create_on_try
+    ?ppx_name
+    ?on_try
+    ?on_return_error ?on_bind_error
+    ()
+  =
   match on_try with
   | Some on_try -> on_try
   | None ->
     match on_return_error, on_bind_error with
     | Some on_return_error, Some on_bind_error -> create_on_try_from_monad_error ~on_return_error ~on_bind_error ()
-    | Some _, None | None, Some _ -> assert false
-    | None, None -> fun _ _ -> assert false
+    | Some _, None | None, Some _ ->
+      assert false
+    | None, None -> fun _ _ ->
+      does_not_support ?ppx_name "try"
+        ~requires:"on_try or on_return_error+on_bind_error"
 
 (* =============================== [ While ] ================================ *)
 
-let create_on_while_from_monad ~on_return ~on_bind () =
+let create_on_while_from_monad
+    ~on_return ~on_bind
+    ()
+  =
+
   (* while%ext e1 do e2 done
 
      =>
@@ -348,10 +467,17 @@ let create_on_while_from_monad ~on_return ~on_bind () =
              ])]
     in [%e ewhile] ()]
 
-let create_on_while ?on_while ?on_return ?on_bind () =
+let create_on_while
+    ?ppx_name
+    ?on_while
+    ?on_return ?on_bind
+    ()
+  =
   match on_while with
   | Some on_while -> on_while
   | None ->
     match on_return, on_bind with
     | Some on_return, Some on_bind -> create_on_while_from_monad ~on_return ~on_bind ()
-    | _ -> fun _ _ -> assert false
+    | _ -> fun _ _ ->
+      does_not_support ?ppx_name "while"
+        ~requires:"on_while or on_return+on_bind"
