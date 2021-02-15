@@ -12,13 +12,13 @@ let mapper_of_functions applies functions =
   let expr mapper = function
     | { pexp_desc =
           Pexp_extension (
-            {txt; loc},
+            {txt; _},
             PStr [ {pstr_desc = Pstr_eval (expr, _); _} ]
           );
-        _ }
+        pexp_loc; _ }
       when applies txt
       ->
-      Ast_helper.with_default_loc loc @@ fun () ->
+      Ast_helper.with_default_loc pexp_loc @@ fun () ->
       let expr =
         match expr.pexp_desc with
         | Pexp_sequence (e1, e2) -> functions.on_sequence e1 e2
