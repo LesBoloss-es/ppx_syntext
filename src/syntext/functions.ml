@@ -214,7 +214,10 @@ let create_on_let_from_monad ?on_return on_bind =
     match on_return with
     | Some on_return ->
       Some (fun e1 e2 ->
-          on_bind e1 [%expr fun v1 -> [%e on_bind e2 [%expr fun v2 -> [%e on_return [%expr (v1, v2)]]]]])
+          on_bind e1
+            [%expr fun v1 ->
+              [%e on_bind e2 [%expr fun v2 ->
+                  [%e on_return [%expr (v1, v2)]]]]])
     | None -> None
   in
   create_on_let_from_simple ?on_and on_simple_let

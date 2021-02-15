@@ -4,11 +4,17 @@ open Ast_helper
 
 let on_sequence = Exp.sequence
 
-let on_simple_let x e1 e2 = [%expr let [%p x] = [%e e1] in [%e e2]]
-let on_and e1 e2 = [%expr ([%e e1], [%e e2])]
+let on_simple_let x e1 e2 =
+  [%expr let [%p x] = [%e e1] in [%e e2]]
 
-let on_simple_ifthen e1 e2 = [%expr if [%e e1] then [%e e2]]
-let on_simple_ifthenelse e1 e2 e3 = [%expr if [%e e1] then [%e e2] else [%e e3]]
+let on_and e1 e2 =
+  [%expr let v1 = [%e e1] and v2 = [%e e2] in (v1, v2)]
+
+let on_simple_ifthen e1 e2 =
+  [%expr if [%e e1] then [%e e2]]
+
+let on_simple_ifthenelse e1 e2 e3 =
+  [%expr if [%e e1] then [%e e2] else [%e e3]]
 
 let on_simple_match = Exp.match_
 
