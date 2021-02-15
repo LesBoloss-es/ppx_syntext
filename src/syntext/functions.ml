@@ -4,34 +4,141 @@ open Asttypes
 open Ast_helper
 open Parsetree
 
+type on_assert = expression -> expression
+type on_for = pattern -> expression -> expression -> direction_flag -> expression -> expression
+type on_ifthenelse = expression -> expression -> expression option -> expression
+type on_let = rec_flag -> value_binding list -> expression -> expression
+type on_match = expression -> case list -> expression
+type on_sequence = expression -> expression -> expression
+type on_try = on_match
+type on_while = on_sequence
+
 type t = {
-  on_let        : rec_flag -> value_binding list -> expression -> expression ;
-  on_match      : expression -> case list -> expression ;
-  on_try        : expression -> case list -> expression ;
-  on_ifthenelse : expression -> expression -> expression option -> expression ;
-  on_sequence   : expression -> expression -> expression ;
-  on_while      : expression -> expression -> expression ;
-  on_for        : pattern -> expression -> expression -> direction_flag -> expression -> expression ;
-  on_assert     : expression -> expression ;
+  on_assert     : on_assert ;
+  on_for        : on_for ;
+  on_ifthenelse : on_ifthenelse ;
+  on_let        : on_let ;
+  on_match      : on_match ;
+  on_sequence   : on_sequence ;
+  on_try        : on_try ;
+  on_while      : on_while ;
 }
 
 (* FIXME: replace all the assert by proper error reporting *)
 
-(* ============================== [ Sequence ] ============================== *)
+(* =============================== [ Assert ] =============================== *)
 
-let create_on_sequence_from_monad on_bind =
-  fun e1 e2 ->
-  (* FIXME: this forces the first element of a sequence to be of type unit, but
-     this is usually just a warning in OCaml. Maybe there is a way to do that? *)
-  on_bind e1 [%expr fun () -> [%e e2]]
+let create_on_assert_from_monad ~on_return ~on_bind ~on_return_error () =
+  (* assert%ext e     =>     e >>= function true -> return () | false -> return "assert false" *)
 
-let create_on_sequence ?on_sequence ?on_bind () =
-  match on_sequence with
-  | Some on_sequence -> on_sequence
+  fun e ->
+
+  let pexn, eexn = Helpers.fresh_variable () in
+
+  on_bind e Exp.(function_ [
+      case [%pat? true] (on_return [%expr ()]);
+      case [%pat? false] [%expr try assert false with [%p pexn] -> [%e on_return_error eexn]]
+    ])
+
+let create_on_assert ?on_assert ?on_assert_false ?on_return ?on_bind ?on_return_error () =
+  let on_assert =
+    match on_assert with
+    | Some on_assert -> on_assert
+    | None ->
+      match on_return, on_bind, on_return_error with
+      | Some on_return, Some on_bind, Some on_return_error -> create_on_assert_from_monad ~on_return ~on_bind ~on_return_error ()
+      | _ -> fun _ -> assert false
+  in
+  fun e ->
+  match e, on_assert_false with
+  | [%expr false], Some on_assert_false -> on_assert_false ()
+  | e, _ -> on_assert e
+
+(* ================================ [ For ] ================================= *)
+
+let create_on_for_from_monad ~on_return ~on_bind () =
+  (* for%ext i = start dir stop; do e done
+
+     => (if dir = Up)
+
+     let j0 = start in
+     let jn = stop in
+     let rec for_ j =
+       if j > jn then
+         return ()
+       else
+         (let i = j in e) >>= fun () -> for_ (j + 1)
+     in
+     for_ j0 *)
+
+
+  fun i start stop dir e ->
+
+  let pfor, for_  = Helpers.fresh_variable () in
+  let pj,  j  = Helpers.fresh_variable () in
+  let pj0, j0 = Helpers.fresh_variable () in
+  let pjn, jn = Helpers.fresh_variable () in
+
+  let j_gt_jn, j_plus_1 =
+    match dir with
+    | Upto -> [%expr [%e j] > [%e jn]], [%expr [%e j] + 1]
+    | Downto -> [%expr [%e j] < [%e jn]], [%expr [%e j] - 1]
+  in
+  [%expr
+    let [%p pj0] = [%e start] in
+    let [%p pjn] = [%e stop] in
+    let rec [%p pfor] = fun [%p pj] ->
+      if [%e j_gt_jn] then
+        [%e on_return [%expr ()]]
+      else
+        [%e on_bind [%expr let [%p i] = [%e j] in [%e e]]
+            [%expr fun () -> [%e for_] [%e j_plus_1]]]
+    in
+    [%e for_] [%e j0]]
+
+(* FIXME: on_simple_for = for i = 0 to n do ... done *)
+
+let create_on_for ?on_for ?on_return ?on_bind () =
+  match on_for with
+  | Some on_for -> on_for
   | None ->
-    match on_bind with
-    | Some on_bind -> create_on_sequence_from_monad on_bind
-    | None -> fun _ _ -> assert false
+    match on_return, on_bind with
+    | Some on_return, Some on_bind -> create_on_for_from_monad ~on_return ~on_bind ()
+    | _ -> fun _ _ _ _ -> assert false
+
+(* ================================= [ If ] ================================= *)
+
+let create_on_ifthenelse_from_monad ?on_return on_bind =
+  (* if%ext e1 then e2             =>     e1 >>= function true -> e2 | false -> return () *)
+  (* if%ext e1 then e2 else e3     =>     e1 >>= function true -> e2 | false -> e3 *)
+  fun e1 e2 e3 ->
+  match e3, on_return with
+  | None, None -> assert false
+  | None, Some on_return -> on_bind e1 Exp.(function_ [case [%pat? true] e2; case [%pat? false] (on_return [%expr ()])])
+  | Some e3, _           -> on_bind e1 Exp.(function_ [case [%pat? true] e2; case [%pat? false] e3])
+
+let create_on_ifthenelse_from_simple ?on_simple_ifthen ?on_simple_ifthenelse () =
+  fun e1 e2 e3 ->
+  match e3 with
+  | None ->
+    (match on_simple_ifthen with
+     | Some on_simple_ifthen -> on_simple_ifthen e1 e2
+     | None -> assert false)
+  | Some e3 ->
+    (match on_simple_ifthenelse with
+     | Some on_simple_ifthenelse -> on_simple_ifthenelse e1 e2 e3
+     | None -> assert false)
+
+let create_on_ifthenelse ?on_ifthenelse ?on_simple_ifthen ?on_simple_ifthenelse ?on_return ?on_bind () =
+  match on_ifthenelse with
+  | Some on_ifthenelse -> on_ifthenelse
+  | None ->
+    match on_simple_ifthen, on_simple_ifthenelse with
+    | Some _, _ | _, Some _ -> create_on_ifthenelse_from_simple ?on_simple_ifthen ?on_simple_ifthenelse ()
+    | None, None ->
+      match on_bind with
+      | Some on_bind -> create_on_ifthenelse_from_monad ?on_return on_bind
+      | None -> fun _ _ _ -> assert false
 
 (* ================================ [ Let ] ================================= *)
 
@@ -165,6 +272,22 @@ let create_on_match ?on_match ?on_simple_match ~on_try ?on_bind () =
       | Some on_bind -> create_on_match_from_monad ~on_try on_bind
       | None -> fun _ _ -> assert false
 
+(* ============================== [ Sequence ] ============================== *)
+
+let create_on_sequence_from_monad on_bind =
+  fun e1 e2 ->
+  (* FIXME: this forces the first element of a sequence to be of type unit, but
+     this is usually just a warning in OCaml. Maybe there is a way to do that? *)
+  on_bind e1 [%expr fun () -> [%e e2]]
+
+let create_on_sequence ?on_sequence ?on_bind () =
+  match on_sequence with
+  | Some on_sequence -> on_sequence
+  | None ->
+    match on_bind with
+    | Some on_bind -> create_on_sequence_from_monad on_bind
+    | None -> fun _ _ -> assert false
+
 (* ================================ [ Try ] ================================= *)
 
 let create_on_try_from_monad_error ~on_return_error ~on_bind_error () =
@@ -180,40 +303,6 @@ let create_on_try ?on_try ?on_return_error ?on_bind_error () =
     | Some on_return_error, Some on_bind_error -> create_on_try_from_monad_error ~on_return_error ~on_bind_error ()
     | Some _, None | None, Some _ -> assert false
     | None, None -> fun _ _ -> assert false
-
-(* ================================= [ If ] ================================= *)
-
-let create_on_ifthenelse_from_monad ?on_return on_bind =
-  (* if%ext e1 then e2             =>     e1 >>= function true -> e2 | false -> return () *)
-  (* if%ext e1 then e2 else e3     =>     e1 >>= function true -> e2 | false -> e3 *)
-  fun e1 e2 e3 ->
-  match e3, on_return with
-  | None, None -> assert false
-  | None, Some on_return -> on_bind e1 Exp.(function_ [case [%pat? true] e2; case [%pat? false] (on_return [%expr ()])])
-  | Some e3, _           -> on_bind e1 Exp.(function_ [case [%pat? true] e2; case [%pat? false] e3])
-
-let create_on_ifthenelse_from_simple ?on_simple_ifthen ?on_simple_ifthenelse () =
-  fun e1 e2 e3 ->
-  match e3 with
-  | None ->
-    (match on_simple_ifthen with
-     | Some on_simple_ifthen -> on_simple_ifthen e1 e2
-     | None -> assert false)
-  | Some e3 ->
-    (match on_simple_ifthenelse with
-     | Some on_simple_ifthenelse -> on_simple_ifthenelse e1 e2 e3
-     | None -> assert false)
-
-let create_on_ifthenelse ?on_ifthenelse ?on_simple_ifthen ?on_simple_ifthenelse ?on_return ?on_bind () =
-  match on_ifthenelse with
-  | Some on_ifthenelse -> on_ifthenelse
-  | None ->
-    match on_simple_ifthen, on_simple_ifthenelse with
-    | Some _, _ | _, Some _ -> create_on_ifthenelse_from_simple ?on_simple_ifthen ?on_simple_ifthenelse ()
-    | None, None ->
-      match on_bind with
-      | Some on_bind -> create_on_ifthenelse_from_monad ?on_return on_bind
-      | None -> fun _ _ _ -> assert false
 
 (* =============================== [ While ] ================================ *)
 
@@ -246,83 +335,3 @@ let create_on_while ?on_while ?on_return ?on_bind () =
     match on_return, on_bind with
     | Some on_return, Some on_bind -> create_on_while_from_monad ~on_return ~on_bind ()
     | _ -> fun _ _ -> assert false
-
-(* ================================ [ For ] ================================= *)
-
-let create_on_for_from_monad ~on_return ~on_bind () =
-  (* for%ext i = start dir stop; do e done
-
-     => (if dir = Up)
-
-     let j0 = start in
-     let jn = stop in
-     let rec for_ j =
-       if j > jn then
-         return ()
-       else
-         (let i = j in e) >>= fun () -> for_ (j + 1)
-     in
-     for_ j0 *)
-
-
-  fun i start stop dir e ->
-
-  let pfor, for_  = Helpers.fresh_variable () in
-  let pj,  j  = Helpers.fresh_variable () in
-  let pj0, j0 = Helpers.fresh_variable () in
-  let pjn, jn = Helpers.fresh_variable () in
-
-  let j_gt_jn, j_plus_1 =
-    match dir with
-    | Upto -> [%expr [%e j] > [%e jn]], [%expr [%e j] + 1]
-    | Downto -> [%expr [%e j] < [%e jn]], [%expr [%e j] - 1]
-  in
-  [%expr
-    let [%p pj0] = [%e start] in
-    let [%p pjn] = [%e stop] in
-    let rec [%p pfor] = fun [%p pj] ->
-      if [%e j_gt_jn] then
-        [%e on_return [%expr ()]]
-      else
-        [%e on_bind [%expr let [%p i] = [%e j] in [%e e]]
-            [%expr fun () -> [%e for_] [%e j_plus_1]]]
-    in
-    [%e for_] [%e j0]]
-
-(* FIXME: on_simple_for = for i = 0 to n do ... done *)
-
-let create_on_for ?on_for ?on_return ?on_bind () =
-  match on_for with
-  | Some on_for -> on_for
-  | None ->
-    match on_return, on_bind with
-    | Some on_return, Some on_bind -> create_on_for_from_monad ~on_return ~on_bind ()
-    | _ -> fun _ _ _ _ -> assert false
-
-(* =============================== [ Assert ] =============================== *)
-
-let create_on_assert_from_monad ~on_return ~on_bind ~on_return_error () =
-  (* assert%ext e     =>     e >>= function true -> return () | false -> return "assert false" *)
-
-  fun e ->
-
-  let pexn, eexn = Helpers.fresh_variable () in
-
-  on_bind e Exp.(function_ [
-      case [%pat? true] (on_return [%expr ()]);
-      case [%pat? false] [%expr try assert false with [%p pexn] -> [%e on_return_error eexn]]
-    ])
-
-let create_on_assert ?on_assert ?on_assert_false ?on_return ?on_bind ?on_return_error () =
-  let on_assert =
-    match on_assert with
-    | Some on_assert -> on_assert
-    | None ->
-      match on_return, on_bind, on_return_error with
-      | Some on_return, Some on_bind, Some on_return_error -> create_on_assert_from_monad ~on_return ~on_bind ~on_return_error ()
-      | _ -> fun _ -> assert false
-  in
-  fun e ->
-  match e, on_assert_false with
-  | [%expr false], Some on_assert_false -> on_assert_false ()
-  | e, _ -> on_assert e
