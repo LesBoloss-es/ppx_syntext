@@ -18,7 +18,7 @@ let mapper_of_functions applies functions =
         _ }
       when applies txt
       ->
-      ignore loc;
+      Ast_helper.with_default_loc loc @@ fun () ->
       let expr =
         match expr.pexp_desc with
         | Pexp_sequence (e1, e2) -> functions.on_sequence e1 e2
