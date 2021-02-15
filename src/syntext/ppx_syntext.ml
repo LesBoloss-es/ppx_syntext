@@ -21,14 +21,14 @@ let mapper_of_functions applies functions =
       Ast_helper.with_default_loc pexp_loc @@ fun () ->
       let expr =
         match expr.pexp_desc with
-        | Pexp_sequence (e1, e2) -> functions.on_sequence e1 e2
+        | Pexp_assert e -> functions.on_assert e
+        | Pexp_for (i, e1, e2, dir, e3) -> functions.on_for i e1 e2 dir e3
+        | Pexp_ifthenelse (e1, e2, e3) -> functions.on_ifthenelse e1 e2 e3
         | Pexp_let (rf, vbs, e) -> functions.on_let rf vbs e
         | Pexp_match (e, cases) -> functions.on_match e cases
+        | Pexp_sequence (e1, e2) -> functions.on_sequence e1 e2
         | Pexp_try (e, cases) -> functions.on_try e cases
-        | Pexp_ifthenelse (e1, e2, e3) -> functions.on_ifthenelse e1 e2 e3
-        | Pexp_assert e -> functions.on_assert e
         | Pexp_while (e1, e2) -> functions.on_while e1 e2
-        | Pexp_for (i, e1, e2, dir, e3) -> functions.on_for i e1 e2 dir e3
         | _ -> expr
       in
       default_mapper.expr mapper expr
