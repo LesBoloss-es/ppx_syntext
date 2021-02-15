@@ -29,7 +29,20 @@ type t = {
 (* =============================== [ Assert ] =============================== *)
 
 let create_on_assert_from_monad ~on_return ~on_bind ~on_return_error () =
-  (* assert%ext e     =>     e >>= function true -> return () | false -> return "assert false" *)
+  (* assert%ext false
+     =>
+     try assert false
+     with exn -> return_error exn *)
+
+  (* assert%ext e
+     =>
+     bind e
+       (function
+        | true -> return ()
+        | false ->
+          try assert false
+          with exn -> return_error exn) *)
+
   let assert_false =
     let pexn, eexn = Helpers.fresh_variable () in
     [%expr try assert false with [%p pexn] -> [%e on_return_error eexn]]
