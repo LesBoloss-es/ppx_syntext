@@ -104,7 +104,9 @@ let create_on_assert
 (* ================================ [ For ] ================================= *)
 
 let create_on_for_from_monad ~on_return ~on_bind () =
-  (* for%ext i = start dir stop; do e done
+  (* for%ext i = start dir stop do
+       e
+     done
 
      => (if dir = Up)
 
@@ -114,10 +116,11 @@ let create_on_for_from_monad ~on_return ~on_bind () =
        if j > jn then
          return ()
        else
-         (let i = j in e) >>= fun () -> for_ (j + 1)
+         bind
+           (let i = j in e)
+           (fun () -> for_ (j + 1))
      in
      for_ j0 *)
-
 
   fun i start stop dir e ->
 
@@ -168,8 +171,8 @@ let create_on_ifthenelse_from_monad
     ?ppx_name
     ?on_return on_bind
   =
-  (* if%ext e1 then e2             =>     e1 >>= function true -> e2 | false -> return () *)
-  (* if%ext e1 then e2 else e3     =>     e1 >>= function true -> e2 | false -> e3 *)
+  (* if%ext e1 then e2             =>     bind e1 (function true -> e2 | false -> return ()) *)
+  (* if%ext e1 then e2 else e3     =>     bind e1 (function true -> e2 | false -> e3) *)
   fun e1 e2 e3 ->
   match e3, on_return with
   | None, None ->
@@ -327,18 +330,24 @@ let create_on_match_from_simple ?ppx_name ~on_try on_simple_match =
   fun e cases ->
 
   (* match%ext e with
-     | ... -> ...
-     | exception E -> ...
-     | exception F -> ...
+     | p1 -> e1
+     | ...
+     | pn -> en
+     | exception p'1 -> e'1
+     | ...
+     | exception p'm -> e'm
 
      =>
 
      try%ext
        match%ext e with
-       | ... -> ...
+       | p1 -> e1
+       | ...
+       | pn -> en
      with
-     | E -> ...
-     | F -> ... *)
+     | p'1 -> e'1
+     | ...
+     | p'm -> e'm *)
 
   (* FIXME: this transformation is broken! exceptions thrown by expressions in
      the match cases would be caught by the try, which is not what we want. *)
@@ -449,14 +458,17 @@ let create_on_while_from_monad
     ()
   =
 
-  (* while%ext e1 do e2 done
+  (* while%ext e1 do
+       e2
+     done
 
      =>
 
      let while_ () =
-       e1 >>= function
-       | true -> e2 >>= while_
-       | false -> return ()      *)
+       bind e1
+         (function
+          | true -> bind e2 while_
+          | false -> return ()) *)
 
   fun e1 e2 ->
 
