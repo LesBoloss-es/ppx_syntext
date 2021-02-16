@@ -63,13 +63,14 @@ will become:
 Option.bind e1 (fun x -> e2)
 ```
 
-Since `Option.bind` only exists since OCaml 4.08.0, the aforementioned let
-binding is in fact rewritten into its inlined version:
+Note here that `x` is *a priori* a free variable in `e2`. Otherwise, the second
+code will trigger OCaml's warning 27 (unused variable) on `x` which will be
+reported in the first code also on `x`. Since `Option.bind` only exists since
+OCaml 4.08.0, *Syntext* in fact rewrites the aforementioned let binding into an
+inlined version of `bind`:
 
 ```ocaml
-match e1 with
-| Some x -> e2
-| None
+match e1 with Some x -> e2 | None
 ```
 
 *(In the rest of this explanation, for the sake of this explanation, we do not
@@ -133,7 +134,7 @@ try%result
 with
 | exn1 -> e1
 | ...
-| exnm -> en
+| exnm -> em
 ```
 
 becomes:
@@ -143,7 +144,7 @@ Result.bind_error e
   (function
    | exn1 -> e1
    | ...
-   | exnm -> e2
+   | exnm -> em
    | any -> Error any)
 ```
 
