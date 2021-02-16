@@ -340,6 +340,9 @@ let create_on_match_from_simple ?ppx_name ~on_try on_simple_match =
      | E -> ...
      | F -> ... *)
 
+  (* FIXME: this transformation is broken! exceptions thrown by expressions in
+     the match cases would be caught by the try, which is not what we want. *)
+
   let (cases, exns) =
     List.partition
       (fun case ->
