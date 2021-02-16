@@ -30,9 +30,163 @@ OCaml. With ocamlbuild, this goes by adding something like the following to
 <src/*>: package(ppx_syntext.std)
 ```
 
+### What Standard Plugins Do
+
+Most types in the standard library admit a natural monad. The option type, for
+instance, admits the following monad:
+
+```ocaml
+type 'a t = 'a option
+
+let return x = Some x
+
+let bind x f =
+  match x with
+  | None -> None
+  | Some x -> f x
+```
+
+*(In fact, since OCaml 4.08.0, the `'a t` type and `bind` function are defined
+in the `Option` module of the standard library. The `return` function is
+actually called `some`.)*
+
+*Syntext* then simply rewrites the control structures into their natural monadic
+version. A let binding as follows:
+
+```ocaml
+let%option x = e1 in e2
+```
+
+will become:
+
+```ocaml
+Option.bind e1 (fun x -> e2)
+```
+
+Since `Option.bind` only exists since OCaml 4.08.0, the aforementioned let
+binding is in fact rewritten into its inlined version:
+
+```ocaml
+match e1 with
+| Some x -> e2
+| None
+```
+
+*(In the rest of this explanation, for the sake of this explanation, we do not
+inline the code of the monadic functions.)*
+
+As a further example, a pattern matching with patterns `p1` to `pn` and guards
+`g1` to `gn` returning expressions `e1` to `en`:
+
+```ocaml
+match%option e with
+| p1 when g1 -> e1
+| ...
+| pn when gn -> en
+```
+
+becomes:
+
+```ocaml
+Option.bind e
+  (function
+   | p1 when g1 -> e1
+   | ...
+   | pn when gn -> en)
+```
+
+Some monads also have an error aspect. This is the case of the option monad, for
+instance. More importantly, this is the case of the result monad which can also
+actually carry the exceptions. These monads not only have `return` and `bind`
+functions, but also `return_error` and `bind_error`. For instance:
+
+```ocaml
+type ('a, 'b) t = ('a, 'b) result
+
+let return v = Ok v
+
+let bind r f =
+  match r with
+  | Ok v -> f v
+  | Error e -> Error e
+
+let return_error e = Error e
+
+let bind_error r f =
+  match r with
+  | Ok v -> Ok v
+  | Error e -> f e
+```
+
+*(Since OCaml 4.08.0, the `('a, 'b) t` type and `bind` function are defined in
+the `Result` module of the standard library. The `return` and `return_error`
+functions are called `ok` and `error`. The `bind_error` function is not
+provided.)*
+
+These functions allow *Syntext* to rewrite error control structures (assert, try
+and, to a lower extent, match) into their monadic versions. For instance, a try
+with exception patterns `exn1` to `exnm` returning expressions `e1` to `em`:
+
+```ocaml
+try%result
+  e
+with
+| exn1 -> e1
+| ...
+| exnm -> en
+```
+
+becomes:
+
+```ocaml
+Result.bind_error e
+  (function
+   | exn1 -> e1
+   | ...
+   | exnm -> e2
+   | any -> Error any)
+```
+
+Note that, contrary to pattern matchings, OCaml exception matchings in try
+constructs are not necessarily complete. This is the reason behind this extra
+`any` pattern.
+
+As a last example, a pattern matching with patterns `p1` to `pn` and guards `g1`
+to `gn` returning expressions `e1` to `en` and exceptional patterns `exn1` to
+`exnm` returning expressions `e'1` to `e'm`:
+
+```ocaml
+match%result e with
+| p1 when g1 -> e1
+| ...
+| pn when gn -> en
+| exception exn1 -> e'1
+| ...
+| exception exnm -> e'm
+```
+
+is handled as:
+
+```ocaml
+try%result
+  match%result e with
+  | p1 when g1 -> e1
+  | ...
+  | pn when gn -> en
+with
+| exn1 -> e'1
+| ...
+| exnm -> e'm
+| any -> Error any
+```
+
+This is not entirely true as, in the latter code, errors returned by an `ei`
+would be caught by the `try` construct while, in the former code, they would
+not. But heh, you get the idea.
+
 ### How To Use the "Dynamic" Plugin
 
-**work in progress**
+**not implemented yet**
 
 How To Write Your Own Plugin
 ----------------------------
